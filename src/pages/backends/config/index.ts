@@ -1,4 +1,5 @@
 import MindIELogo from '@/assets/logo/ascend.png';
+import LightX2VLogo from '@/assets/logo/lightx2v.png';
 import SGLangLogo from '@/assets/logo/sglang.png';
 import vLLMLogo from '@/assets/logo/vllm.png';
 import VoxBoxLogo from '@/assets/logo/voxbox.png';
@@ -26,7 +27,8 @@ export const builtInBackendLogos: Record<string, string> = {
   [backendOptionsMap.SGLang]: SGLangLogo,
   [backendOptionsMap.vllm]: vLLMLogo,
   [backendOptionsMap.ascendMindie]: MindIELogo,
-  [backendOptionsMap.voxBox]: VoxBoxLogo
+  [backendOptionsMap.voxBox]: VoxBoxLogo,
+  [backendOptionsMap.lightX2V]: LightX2VLogo
 };
 
 export const BackendSourceValueMap = {

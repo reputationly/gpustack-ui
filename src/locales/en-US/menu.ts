@@ -27,6 +27,8 @@ export default {
   'menu.users': 'Users',
   'menu.resources.workers': 'Workers',
   'menu.resources.gpus': 'GPUs',
+  'menu.resources.videoTasks': 'Video Tasks',
+  'menu.resources.storageSettings': 'Video Storage',
   'menu.models.modelfiles': 'Model Files',
   'menu.accessControl': 'Access Control',
   'menu.accessControl.apikeys': 'API Keys',

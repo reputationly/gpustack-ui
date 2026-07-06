@@ -139,14 +139,32 @@ export const createImage = async (params: {
   return response.json();
 };
 
+// LightX2V async video job facade (see gpustack docs/lightx2v-backend-design.md
+// §6.0): POST returns a public task_id; poll GET /videos/{id} until the state is
+// terminal; then GET /videos/{id}/content streams the result file.
 export const createVideo = async (params: { data?: any; token?: any }) => {
   return request(CREATE_VIDEO_API, {
     method: 'POST',
     data: params.data,
     cancelToken: params.token,
     headers: {
-      'Content-Type': 'multipart/form-data'
+      'Content-Type': 'application/json'
     }
+  });
+};
+
+export const getVideoTask = async (params: { id: string; token?: any }) => {
+  return request(`${CREATE_VIDEO_API}/${params.id}`, {
+    method: 'GET',
+    cancelToken: params.token
+  });
+};
+
+export const getVideoContent = async (params: { id: string; token?: any }) => {
+  return request(`${CREATE_VIDEO_API}/${params.id}/content`, {
+    method: 'GET',
+    responseType: 'blob',
+    cancelToken: params.token
   });
 };
 

@@ -33,6 +33,8 @@ export default {
   'menu.404': 'Ошибка 404',
   'menu.resources.workers': 'Воркеры',
   'menu.resources.gpus': 'GPUs',
+  'menu.resources.videoTasks': 'Задачи видео',
+  'menu.resources.storageSettings': 'Хранилище видео',
   'menu.models.modelfiles': 'Файлы модлей',
   'menu.accessControl': 'Управление доступом',
   'menu.accessControl.apikeys': 'API Ключи',

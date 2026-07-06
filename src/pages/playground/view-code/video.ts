@@ -15,9 +15,10 @@ export const generateCurlCode = ({
 
   // ========================= Curl =========================
 
+  const contentType = isFormdata ? 'multipart/form-data' : 'application/json';
   const curlCode = `
 curl ${host}${api} \\
--H "Content-Type: multipart/form-data" \\
+-H "Content-Type: ${contentType}" \\
 -H "Authorization: Bearer $\{YOUR_GPUSTACK_API_KEY}" \\
 ${formatCurlArgs(_.omit(parameters, ['mask', 'image']), isFormdata)}`
     .trim()

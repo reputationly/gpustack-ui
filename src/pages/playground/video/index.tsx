@@ -40,7 +40,7 @@ const PlaygroundRerank: React.FC = () => {
     const getModelList = async () => {
       try {
         const params = {
-          categories: modelCategoriesMap.image,
+          categories: modelCategoriesMap.video,
           with_meta: true
         };
         const res = await queryModelsList(params);

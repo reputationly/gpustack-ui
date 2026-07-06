@@ -4,7 +4,15 @@ import { useOverlayScroller } from '@gpustack/core-ui';
 import { useIntl } from '@umijs/max';
 import _ from 'lodash';
 import { useEffect, useRef, useState } from 'react';
-import { createVideo } from '../apis';
+import { createVideo, getVideoContent, getVideoTask } from '../apis';
+
+// Interval between GET /videos/{id} polls. Each GET makes the server refresh the
+// task from its instance (poll-on-GET), so this is the effective progress cadence.
+const POLL_INTERVAL = 2000;
+// Terminal lifecycle states returned by the facade (VideoTaskStateEnum values).
+const TERMINAL_STATES = ['done', 'failed', 'canceled'];
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function useTextVideo(props: any) {
   const intl = useIntl();
@@ -26,6 +34,15 @@ export default function useTextVideo(props: any) {
   const requestToken = useRef<any>(null);
   const { initialize } = useOverlayScroller();
   const requestIdRef = useRef<number>(0);
+  // Track the created object URL so it can be revoked (avoid blob leaks).
+  const objectUrlRef = useRef<string>('');
+
+  const revokeCurrentUrl = () => {
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = '';
+    }
+  };
 
   useEffect(() => {
     if (scroller.current) {
@@ -52,16 +69,30 @@ export default function useTextVideo(props: any) {
     setLoading(false);
   }, 200);
 
+  const isStale = (id: number) => requestIdRef.current !== id;
+
+  const setError = (source: any) => {
+    setTokenResult({
+      error: true,
+      errorMessage: extractErrorMessage(source)
+    });
+    setVideoList([]);
+  };
+
   const submitMessage = async (parameters: any) => {
+    // Hoisted so the `finally` guard can tell whether this invocation is still
+    // the active one before it touches shared loading state.
+    let currentRequestId = requestIdRef.current;
     try {
       if (!parameters.model) return;
 
       requestToken.current?.cancel?.('cancel');
       requestToken.current = createAxiosToken();
-      const currentRequestId = updateRequestId();
+      currentRequestId = updateRequestId();
       setLoading(true);
       setMessageId();
       setTokenResult(null);
+      revokeCurrentUrl();
 
       const newList = [
         {
@@ -75,54 +106,86 @@ export default function useTextVideo(props: any) {
 
       setVideoList(newList);
 
-      const result = await createVideo({
+      // 1) Submit the job → public task_id.
+      const submitRes = await createVideo({
         data: parameters,
         token: requestToken.current.token
       });
+      if (isStale(currentRequestId)) return;
+      if (!submitRes || submitRes.error || !submitRes.task_id) {
+        setError(submitRes);
+        return;
+      }
 
-      console.log('result:', result);
+      // 2) Poll GET /videos/{id} until the state is terminal.
+      const taskId = submitRes.task_id;
+      let status = submitRes.status;
+      let latest: any = submitRes;
+      while (!TERMINAL_STATES.includes(status)) {
+        await sleep(POLL_INTERVAL);
+        if (isStale(currentRequestId)) return;
+        latest = await getVideoTask({
+          id: taskId,
+          token: requestToken.current.token
+        });
+        if (isStale(currentRequestId)) return;
+        // A truthy `error` here is just the task's state_message, which the
+        // facade sends on non-terminal states too (e.g. "instance lost task;
+        // requeued" while status is still queued). Only a missing/malformed
+        // response aborts the poll; a real failure surfaces via the terminal
+        // `status !== 'done'` branch below (which shows latest.error).
+        if (!latest || !latest.status) {
+          setError(latest);
+          return;
+        }
+        status = latest.status;
+      }
 
-      if (result.error) {
+      if (status !== 'done') {
         setTokenResult({
           error: true,
-          errorMessage: extractErrorMessage(result)
+          errorMessage: latest.error || `Video generation ${status}`
         });
         setVideoList([]);
         return;
       }
 
-      // If the request ID has changed, ignore this chunk
-      if (requestIdRef.current !== currentRequestId) {
+      // 3) Fetch the result file and turn it into a playable object URL.
+      const blob = await getVideoContent({
+        id: taskId,
+        token: requestToken.current.token
+      });
+      if (isStale(currentRequestId)) return;
+      if (!(blob instanceof Blob)) {
+        setError(blob);
         return;
       }
-      if (result?.error) {
-        setTokenResult({
-          error: true,
-          errorMessage: extractErrorMessage(result)
-        });
-        return;
-      }
+      const url = URL.createObjectURL(blob);
+      objectUrlRef.current = url;
 
       newList[0] = {
         ...newList[0],
-        dataUrl: result?.id,
+        dataUrl: url,
         loading: false,
         progress: 100
       };
-
-      console.log('newList:', newList);
       setVideoList([...newList]);
     } catch (error) {
-      console.log('error:', error);
-      updateRequestId();
       stopDebounce();
       requestToken.current?.cancel?.('cancel');
     } finally {
-      setLoading(false);
+      // Only the active invocation may clear loading: a stale poll that resumed
+      // after `sleep` (superseded by a newer generation) must not turn off the
+      // spinner the newer run just turned on. On the plain error path this
+      // invocation is still active, so loading is cleared as before.
+      if (!isStale(currentRequestId)) {
+        setLoading(false);
+      }
     }
   };
 
   const handleClear = () => {
+    revokeCurrentUrl();
     setVideoList([]);
     setTokenResult(null);
     setCurrentPrompt('');
@@ -135,6 +198,7 @@ export default function useTextVideo(props: any) {
   useEffect(() => {
     return () => {
       requestToken.current?.cancel?.('cancel');
+      revokeCurrentUrl();
     };
   }, []);
 

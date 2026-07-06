@@ -50,7 +50,8 @@ export const backendLabelMap = {
   [backendOptionsMap.vllm]: 'vLLM',
   [backendOptionsMap.voxBox]: 'vox-box',
   [backendOptionsMap.ascendMindie]: 'Ascend MindIE',
-  [backendOptionsMap.custom]: 'Custom'
+  [backendOptionsMap.custom]: 'Custom',
+  [backendOptionsMap.lightX2V]: 'LightX2V'
 };
 
 export const backendParamsHolderTips = {
@@ -282,6 +283,7 @@ export const placementStrategyOptions = [
 
 export const modelCategoriesMap = {
   image: 'image',
+  video: 'video',
   text_to_speech: 'text_to_speech',
   speech_to_text: 'speech_to_text',
   embedding: 'embedding',
@@ -305,6 +307,10 @@ export const categoryOptions = [
   {
     label: 'Image',
     value: modelCategoriesMap.image
+  },
+  {
+    label: 'Video',
+    value: modelCategoriesMap.video
   },
   {
     label: 'Text-to-Speech',

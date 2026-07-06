@@ -111,7 +111,7 @@ const GroundVideo: React.FC<MessageProps> = forwardRef((props, ref) => {
   const viewCodeContent = useMemo(() => {
     return generateCode({
       api: CREATE_VIDEO_API,
-      isFormdata: true,
+      isFormdata: false,
       parameters: {
         ...finalParameters,
         prompt: currentPrompt

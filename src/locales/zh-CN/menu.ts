@@ -35,6 +35,8 @@ export default {
   'menu.404': '404',
   'menu.resources.workers': '节点',
   'menu.resources.gpus': 'GPU',
+  'menu.resources.videoTasks': '视频任务',
+  'menu.resources.storageSettings': '视频存储',
   'menu.models.modelfiles': '模型文件',
   'menu.accessControl': '访问控制',
   'menu.accessControl.apikeys': 'API 密钥',

@@ -13,7 +13,9 @@ export const backendOptionsMap = {
   voxBox: 'VoxBox',
   ascendMindie: 'MindIE',
   custom: 'Custom',
-  SGLang: 'SGLang'
+  SGLang: 'SGLang',
+  // Must match the backend name returned by the API (BackendEnum.LIGHTX2V).
+  lightX2V: 'LightX2V'
 };
 
 // for checking built-in backends when selecting a gguf

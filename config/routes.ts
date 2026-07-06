@@ -77,18 +77,18 @@ const baseRoutes = [
         selectedIcon: 'icon-audio-filled',
         defaultIcon: 'icon-audio1',
         component: './playground/speech/index'
+      },
+      {
+        name: 'video',
+        title: 'Video',
+        path: '/playground/video',
+        key: 'video',
+        icon: 'icon-video-outline',
+        hideInMenu: false,
+        selectedIcon: 'icon-video-filled02',
+        defaultIcon: 'icon-video-outline',
+        component: './playground/video'
       }
-      // {
-      //   name: 'video',
-      //   title: 'Video',
-      //   path: '/playground/video',
-      //   key: 'video',
-      //   icon: 'icon-video-outline',
-      //   hideInMenu: false,
-      //   selectedIcon: 'icon-video-filled02',
-      //   defaultIcon: 'icon-video-outline',
-      //   component: './playground/video'
-      // }
     ]
   },
   {
@@ -293,6 +293,29 @@ const baseRoutes = [
         selectedIcon: 'icon-gpu-filled',
         defaultIcon: 'icon-gpu1',
         component: './resources/components/gpus'
+      },
+      {
+        name: 'videoTasks',
+        path: '/resources/video-tasks',
+        key: 'videoTasks',
+        icon: 'icon-video-outline',
+        selectedIcon: 'icon-video-filled02',
+        defaultIcon: 'icon-video-outline',
+        component: './video-tasks'
+      },
+      {
+        name: 'storageSettings',
+        path: '/resources/storage-settings',
+        key: 'storageSettings',
+        // Page hits /config, which is mounted with get_admin_user (platform
+        // admin only). Gate strictly so org admins widened into canSeeOrgAdmin
+        // don't see a menu that 403s. (videoTasks stays on the inherited
+        // canSeeOrgAdmin — its list API is owner/admin-scoped.)
+        access: 'canSeeAdmin',
+        icon: 'icon-storage',
+        selectedIcon: 'icon-storage',
+        defaultIcon: 'icon-storage',
+        component: './storage-settings'
       },
       {
         name: 'credentials',
