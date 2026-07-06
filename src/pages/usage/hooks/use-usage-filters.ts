@@ -1,7 +1,7 @@
 import { exportJsonToExcel } from '@gpustack/core-ui/excel';
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
-import { GroupOption } from '../config';
+import { FULL_FETCH_PAGE, GroupOption } from '../config';
 import { BreakdownItem, UsageFilterItem } from '../config/types';
 import useQueryTimeSeriesData from '../services/use-query-timeseries-data';
 
@@ -208,11 +208,11 @@ export const useUsageFilters = ({
     fetchTimeSeriesData({
       ...currentChartFilters,
       group_by: groupByArray,
-      // The trend chart needs the complete date series. ``page: -1`` is the
-      // backend's no-pagination sentinel — without it the default page (20
-      // buckets, sorted by total tokens) drops low-traffic dates, leaving
-      // gaps in the chart for ranges spanning more than a handful of buckets.
-      page: -1,
+      // The trend chart needs the complete date series (FULL_FETCH_PAGE) —
+      // otherwise the default page (20 buckets, sorted by total tokens)
+      // drops low-traffic dates, leaving gaps in the chart for ranges
+      // spanning more than a handful of buckets.
+      ...FULL_FETCH_PAGE,
       // Without ``scope`` the backend defaults to ``all``, while the
       // breakdown tables pass ``scope`` explicitly. The mismatch makes
       // the chart and the tables run different filters on the same

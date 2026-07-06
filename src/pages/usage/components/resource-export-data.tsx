@@ -21,6 +21,7 @@ import {
   ResourceBreakdownRequest,
   ResourceBreakdownResponse
 } from '../apis/resource';
+import { FULL_FETCH_PAGE } from '../config';
 import {
   exportBreakdownRows,
   toExportColumns
@@ -163,12 +164,14 @@ const ResourceExportData: React.FC<ResourceExportDataProps> = (props) => {
     setPageParams({ page, perPage });
   };
 
-  // Export the full filtered set, not just the visible page. ``page: -1`` is
-  // the backend's no-pagination sentinel (perPage is then ignored).
+  // Export the full filtered set, not just the visible page, via the
+  // backend's fetch-everything mechanism (first page at the perPage cap).
   const handleSubmit = async () => {
     setExporting(true);
     try {
-      const res = await queryFn(buildRequest(-1, INITIAL_PAGE.perPage));
+      const res = await queryFn(
+        buildRequest(FULL_FETCH_PAGE.page, FULL_FETCH_PAGE.perPage)
+      );
       exportBreakdownRows(
         res.items ?? [],
         toExportColumns(columns),

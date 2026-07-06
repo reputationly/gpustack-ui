@@ -27,6 +27,7 @@ import MetricChartCard from '../components/metric-chart-card';
 import MetricLabel from '../components/metric-label';
 import ResourceExportData from '../components/resource-export-data';
 import ResourceFilterBar from '../components/resource-filter-bar';
+import { FULL_FETCH_PAGE } from '../config';
 import useResourceMeta from '../hooks/use-resource-meta';
 import {
   exportBreakdownSheets,
@@ -140,8 +141,7 @@ const StorageTab: React.FC = () => {
       // whole range. The default order is metric-desc, so partial (current/
       // recent) buckets have smaller values and would be pushed onto later
       // pages — dropping the newest hours from the chart under a small page.
-      // ``page: -1`` is the backend's no-pagination sentinel.
-      page: -1
+      ...FULL_FETCH_PAGE
     })
   );
 
@@ -284,8 +284,7 @@ const StorageTab: React.FC = () => {
           ...baseRequest(),
           group_by: [g.key],
           // A breakdown export is the full filtered set, not a page.
-          // ``page: -1`` is the backend's no-pagination sentinel.
-          page: -1
+          ...FULL_FETCH_PAGE
         })
       )
     );

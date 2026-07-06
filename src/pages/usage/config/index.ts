@@ -1,5 +1,11 @@
 import { UsageFilterItem } from './types';
 
+// Full-fetch pagination for charts/exports that need the whole filtered set.
+// The backend has NO "page: -1" sentinel (usage/breakdown validates page >= 1,
+// resource endpoints cap perPage at 10000 as the designed fetch-everything
+// mechanism), so "all" = first page at the cap.
+export const FULL_FETCH_PAGE = { page: 1, perPage: 10000 };
+
 export const groupByOptions = [
   // {
   //   value: null,

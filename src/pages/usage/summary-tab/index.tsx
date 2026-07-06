@@ -31,6 +31,7 @@ import { Col, Row } from 'antd';
 import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
 import ResourceFilterBar from '../components/resource-filter-bar';
+import { FULL_FETCH_PAGE } from '../config';
 import useResourceMeta from '../hooks/use-resource-meta';
 import {
   bucketKey,
@@ -299,21 +300,21 @@ const SummaryTab: React.FC = () => {
         filters: creatorFilter
       }),
 
-      // Date-bucketed trends: fetch the whole series via the no-pagination
-      // sentinel (page: -1). A metric-desc page would drop low-traffic (often
-      // most recent) buckets and leave gaps in the chart.
+      // Date-bucketed trends: fetch the whole series (FULL_FETCH_PAGE).
+      // A metric-desc page would drop low-traffic (often most recent)
+      // buckets and leave gaps in the chart.
       fetchTokenSeries({
         ...commonParams,
         metric: 'total_tokens',
         group_by: ['date'],
         granularity,
-        page: -1,
+        ...FULL_FETCH_PAGE,
         filters: {}
       }),
 
       fetchComputeBreakdown({
         ...paginationParams,
-        page: -1,
+        ...FULL_FETCH_PAGE,
         group_by: ['date'],
         granularity,
         filters: creatorFilter
@@ -321,7 +322,7 @@ const SummaryTab: React.FC = () => {
 
       fetchStorageByDate({
         ...paginationParams,
-        page: -1,
+        ...FULL_FETCH_PAGE,
         group_by: ['date'],
         granularity,
         filters: creatorFilter
