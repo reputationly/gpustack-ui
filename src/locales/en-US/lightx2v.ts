@@ -26,6 +26,9 @@ export default {
   'storageSettings.admission.videoWait': 'Video Max Queue Wait (s)',
   'storageSettings.admission.videoWait.tips':
     'Tolerated queue wait for the asynchronous video link (poll-based, tolerates longer, ~150s).',
+  'storageSettings.admission.audioWait': 'Audio Max Queue Wait (s)',
+  'storageSettings.admission.audioWait.tips':
+    'Tolerated queue wait for the asynchronous audio (TTS) link (short lines at RTF~3, per-instance FIFO of 8, ~60s).',
   'storageSettings.admission.latencyTable': 'Per-model Latency (s)',
   'storageSettings.admission.latencyTable.tips':
     'Single-instance hot-state generation seconds per model (substring match, case-insensitive). Drives the estimate = floor(queued / running instances) × latency. Unknown models fall back to a per-kind default.',

@@ -70,7 +70,9 @@ const StorageSettings: React.FC = () => {
           lightx2v_image_max_queue_wait_seconds:
             data?.lightx2v_image_max_queue_wait_seconds ?? 25,
           lightx2v_video_max_queue_wait_seconds:
-            data?.lightx2v_video_max_queue_wait_seconds ?? 150
+            data?.lightx2v_video_max_queue_wait_seconds ?? 150,
+          lightx2v_audio_max_queue_wait_seconds:
+            data?.lightx2v_audio_max_queue_wait_seconds ?? 60
         });
         setLatencyRows(parseLatencyRows(data?.lightx2v_model_latency_seconds));
       })
@@ -113,6 +115,8 @@ const StorageSettings: React.FC = () => {
           values.lightx2v_image_max_queue_wait_seconds,
         lightx2v_video_max_queue_wait_seconds:
           values.lightx2v_video_max_queue_wait_seconds,
+        lightx2v_audio_max_queue_wait_seconds:
+          values.lightx2v_audio_max_queue_wait_seconds,
         lightx2v_model_latency_seconds: latency
       });
       message.success(intl.formatMessage({ id: 'common.message.success' }));
@@ -193,6 +197,17 @@ const StorageSettings: React.FC = () => {
             })}
             extra={intl.formatMessage({
               id: 'storageSettings.admission.videoWait.tips'
+            })}
+          >
+            <InputNumber min={1} max={3600} style={{ width: 200 }} />
+          </Form.Item>
+          <Form.Item
+            name="lightx2v_audio_max_queue_wait_seconds"
+            label={intl.formatMessage({
+              id: 'storageSettings.admission.audioWait'
+            })}
+            extra={intl.formatMessage({
+              id: 'storageSettings.admission.audioWait.tips'
             })}
           >
             <InputNumber min={1} max={3600} style={{ width: 200 }} />

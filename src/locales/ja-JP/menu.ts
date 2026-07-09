@@ -34,7 +34,7 @@ export default {
   'menu.settings': 'Settings',
   'menu.resources.workers': 'Workers',
   'menu.resources.gpus': 'GPUs',
-  'menu.resources.videoTasks': '動画タスク',
+  'menu.resources.videoTasks': '生成タスク',
   'menu.resources.storageSettings': '動画ストレージ',
   'menu.models.modelfiles': 'Model Files',
   'menu.accessControl': 'Access Control',

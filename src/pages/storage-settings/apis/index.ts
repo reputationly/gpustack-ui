@@ -12,6 +12,7 @@ export interface StorageConfig {
   lightx2v_admission_enabled?: boolean | null;
   lightx2v_image_max_queue_wait_seconds?: number | null;
   lightx2v_video_max_queue_wait_seconds?: number | null;
+  lightx2v_audio_max_queue_wait_seconds?: number | null;
   // 按模型单实例热态延迟(秒),对象形态或 JSON 字符串。
   lightx2v_model_latency_seconds?: Record<string, number> | string | null;
   [key: string]: any;

@@ -25,6 +25,9 @@ export default {
   'storageSettings.admission.videoWait': '视频最大排队等待(秒)',
   'storageSettings.admission.videoWait.tips':
     '异步视频链路可容忍的排队等待(基于轮询,容忍更久,约 150 秒)。',
+  'storageSettings.admission.audioWait': '语音最大排队等待(秒)',
+  'storageSettings.admission.audioWait.tips':
+    '异步语音合成链路可容忍的排队等待(短句 RTF~3、单实例 FIFO 8,约 60 秒)。',
   'storageSettings.admission.latencyTable': '按模型延迟(秒)',
   'storageSettings.admission.latencyTable.tips':
     '各模型单实例热态生成秒数(按模型名子串匹配,不区分大小写)。用于预估 = floor(排队数 / 在线实例数) × 延迟。未匹配的模型按类别默认兜底。',

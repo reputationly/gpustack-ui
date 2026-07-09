@@ -25,7 +25,7 @@ export default {
   'menu.users': 'Kullanıcılar',
   'menu.resources.workers': 'İşçi Düğümler',
   'menu.resources.gpus': "GPU'lar",
-  'menu.resources.videoTasks': 'Video Görevleri',
+  'menu.resources.videoTasks': 'Oluşturma Görevleri',
   'menu.resources.storageSettings': 'Video Depolama',
   'menu.models.modelfiles': 'Model Dosyaları',
   'menu.accessControl': 'Erişim Kontrolü',
