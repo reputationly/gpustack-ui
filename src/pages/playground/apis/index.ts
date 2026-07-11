@@ -168,6 +168,35 @@ export const getVideoContent = async (params: { id: string; token?: any }) => {
   });
 };
 
+// Stream one input field's file(s) to shared NFS and get back their relative
+// refs (see gpustack POST /v1/videos/inputs). The facade has no new-api
+// materialization layer for this UI, so inputs are uploaded as multipart form
+// data (NOT base64 in the submit body — a source video is tens of MB). Returns
+// { input_refs: { <field>: [rel, ...] }, user_id, group_id }; the caller submits
+// /videos with the same user_id so the ref's tenant segment matches.
+export const UPLOAD_VIDEO_INPUT_API = `${CREATE_VIDEO_API}/inputs`;
+export const uploadVideoInput = async (params: {
+  taskType: string;
+  model: string;
+  field: string;
+  files: File[];
+  token?: any;
+}) => {
+  const form = new FormData();
+  form.append('task_type', params.taskType);
+  form.append('model', params.model);
+  form.append('field', params.field);
+  params.files.forEach((file) => form.append('files', file));
+  // Do NOT set Content-Type here: the browser must generate the multipart
+  // boundary from the FormData body itself. Overriding the header sends
+  // "multipart/form-data" with no boundary, which the server can't parse.
+  return request(UPLOAD_VIDEO_INPUT_API, {
+    method: 'POST',
+    data: form,
+    cancelToken: params.token
+  });
+};
+
 // ============ audio ============
 export const textToSpeech = async (params: any, options?: any) => {
   const res = await fetch(AUDIO_TEXT_TO_SPEECH_API, {

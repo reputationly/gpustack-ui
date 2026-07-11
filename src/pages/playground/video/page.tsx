@@ -25,6 +25,12 @@ import '../style/ground-llm.less';
 import '../style/system-message-wrap.less';
 import { generateCode } from '../view-code/video';
 import DataForm from './forms';
+import InputsPanel, { VideoInputsValue } from './inputs-panel';
+import {
+  inferVideoTaskType,
+  taskHasSrRatio,
+  videoTaskInputs
+} from './task-inputs';
 
 interface MessageProps {
   modelList: Global.BaseOption<string>[];
@@ -59,6 +65,7 @@ const GroundVideo: React.FC<MessageProps> = forwardRef((props, ref) => {
     videoList,
     currentPrompt,
     setCurrentPrompt,
+    setTokenResult,
     handleClear,
     handleStopConversation,
     submitMessage
@@ -66,6 +73,19 @@ const GroundVideo: React.FC<MessageProps> = forwardRef((props, ref) => {
     scroller,
     API: CREATE_VIDEO_API
   });
+
+  // Uploaded inputs (files per facade field + optional sr_ratio), driven by the
+  // selected model's task_type. Empty for plain text-to-video.
+  const [inputsValue, setInputsValue] = useState<VideoInputsValue>({
+    files: {}
+  });
+
+  // task_type decides which inputs the model needs. Prefer an explicit
+  // meta.task_type; otherwise infer from the model name (same rule as backend).
+  const currentModelMeta = modelList.find(
+    (m: any) => m.value === parameters.model
+  )?.meta;
+  const taskType = inferVideoTaskType(parameters.model, currentModelMeta);
 
   useImperativeHandle(ref, () => {
     return {
@@ -124,30 +144,76 @@ const GroundVideo: React.FC<MessageProps> = forwardRef((props, ref) => {
   };
 
   const generateParams = () => {
-    const params = {
+    const params: any = {
       ..._.omitBy(finalParameters, (value: string) => !value),
-      prompt: currentPrompt
+      prompt: currentPrompt,
+      task_type: taskType,
+      // Consumed by the submit hook (uploaded to NFS, then stripped): the raw
+      // files per facade field and the resolved task_type for the upload path.
+      __taskType: taskType,
+      __inputs: inputsValue.files
     };
+    if (taskHasSrRatio(taskType) && inputsValue.srRatio) {
+      params.sr_ratio = inputsValue.srRatio;
+    }
     return params;
+  };
+
+  // Client-side input guard (the facade re-validates authoritatively): required
+  // fields must be present; vace needs a source video or reference image.
+  const missingInputMessage = (): string => {
+    const files = inputsValue.files || {};
+    const required = (videoTaskInputs[taskType] || []).filter(
+      (f) => f.required
+    );
+    for (const f of required) {
+      if (!(files[f.field] || []).length) {
+        return intl.formatMessage(
+          { id: 'playground.video.input.required' },
+          { field: intl.formatMessage({ id: f.labelId }) }
+        );
+      }
+    }
+    if (
+      taskType === 'vace' &&
+      !(files.src_video || []).length &&
+      !(files.src_ref_images || []).length
+    ) {
+      return intl.formatMessage({ id: 'playground.video.input.vaceRequired' });
+    }
+    // Mirror the facade's "src_mask requires src_video" cross-field constraint so
+    // a mask-without-source-video upload isn't started only to be rejected.
+    if (
+      taskType === 'vace' &&
+      (files.src_mask || []).length &&
+      !(files.src_video || []).length
+    ) {
+      return intl.formatMessage({
+        id: 'playground.video.input.maskNeedsVideo'
+      });
+    }
+    return '';
   };
 
   const handleSendMessage = async () => {
     try {
       await form.current?.form?.validateFields();
       if (!parameters.model) return;
+      const missing = missingInputMessage();
+      if (missing) {
+        setTokenResult({ error: true, errorMessage: missing });
+        return;
+      }
       const params = generateParams();
-      console.log('generateParams:', params);
       setParams({
         ...parameters
       });
 
-      console.log('params:', params, parameters);
       setRouteCache(routeCachekey['/playground/video'], true);
       await submitMessage(params);
     } catch (error) {
       // console.log('error:', error);
     } finally {
-      console.log('finally---------');
       setRouteCache(routeCachekey['/playground/video'], false);
     }
   };
@@ -272,6 +338,11 @@ const GroundVideo: React.FC<MessageProps> = forwardRef((props, ref) => {
           paramsConfig={paramsConfig}
           initialValues={initialValues}
           modelList={modelList}
+        />
+        <InputsPanel
+          taskType={taskType}
+          disabled={loading}
+          onChange={setInputsValue}
         />
       </RightContainer>
       <ViewCommonCode

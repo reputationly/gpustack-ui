@@ -4,7 +4,12 @@ import { useOverlayScroller } from '@gpustack/core-ui';
 import { useIntl } from '@umijs/max';
 import _ from 'lodash';
 import { useEffect, useRef, useState } from 'react';
-import { createVideo, getVideoContent, getVideoTask } from '../apis';
+import {
+  createVideo,
+  getVideoContent,
+  getVideoTask,
+  uploadVideoInput
+} from '../apis';
 
 // Interval between GET /videos/{id} polls. Each GET makes the server refresh the
 // task from its instance (poll-on-GET), so this is the effective progress cadence.
@@ -106,9 +111,45 @@ export default function useTextVideo(props: any) {
 
       setVideoList(newList);
 
+      // 0) Materialize any inputs (i2v/s2v/sr/vace) onto shared NFS first, then
+      // submit with the returned input_refs. `__inputs` is {field: File[]} and
+      // `__taskType` the resolved task_type — both stripped before the submit.
+      const rawInputs: Record<string, File[]> = parameters.__inputs || {};
+      const taskType: string = parameters.__taskType || '';
+      const body: any = _.omit(parameters, ['__inputs', '__taskType']);
+      const inputFields = Object.keys(rawInputs).filter(
+        (f) => (rawInputs[f] || []).length > 0
+      );
+      if (inputFields.length) {
+        const inputRefs: Record<string, string[]> = {};
+        let uploadUserId: any;
+        for (const field of inputFields) {
+          const up = await uploadVideoInput({
+            taskType,
+            model: parameters.model,
+            field,
+            files: rawInputs[field],
+            token: requestToken.current.token
+          });
+          if (isStale(currentRequestId)) return;
+          if (!up || up.error || !up.input_refs) {
+            setError(up);
+            return;
+          }
+          Object.assign(inputRefs, up.input_refs);
+          uploadUserId = up.user_id;
+        }
+        body.input_refs = inputRefs;
+        if (uploadUserId !== undefined) {
+          // Submit under the same user_id the uploads were written for, so the
+          // facade's tenant-segment check on each ref passes.
+          body.user_id = uploadUserId;
+        }
+      }
+
       // 1) Submit the job → public task_id.
       const submitRes = await createVideo({
-        data: parameters,
+        data: body,
         token: requestToken.current.token
       });
       if (isStale(currentRequestId)) return;
