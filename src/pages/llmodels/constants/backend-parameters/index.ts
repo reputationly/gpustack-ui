@@ -15,7 +15,9 @@ export const backendOptionsMap = {
   custom: 'Custom',
   SGLang: 'SGLang',
   // Must match the backend name returned by the API (BackendEnum.LIGHTX2V).
-  lightX2V: 'LightX2V'
+  lightX2V: 'LightX2V',
+  // Must match the backend name returned by the API (BackendEnum.ACESTEP).
+  aceStep: 'ACEStep'
 };
 
 // for checking built-in backends when selecting a gguf
