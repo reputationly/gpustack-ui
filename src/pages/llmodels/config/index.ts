@@ -284,6 +284,7 @@ export const placementStrategyOptions = [
 export const modelCategoriesMap = {
   image: 'image',
   video: 'video',
+  music: 'music',
   text_to_speech: 'text_to_speech',
   speech_to_text: 'speech_to_text',
   embedding: 'embedding',
@@ -311,6 +312,10 @@ export const categoryOptions = [
   {
     label: 'Video',
     value: modelCategoriesMap.video
+  },
+  {
+    label: 'Music',
+    value: modelCategoriesMap.music
   },
   {
     label: 'Text-to-Speech',
