@@ -30,7 +30,9 @@ export const builtInBackendLogos: Record<string, string> = {
   [backendOptionsMap.ascendMindie]: MindIELogo,
   [backendOptionsMap.voxBox]: VoxBoxLogo,
   [backendOptionsMap.lightX2V]: LightX2VLogo,
-  [backendOptionsMap.aceStep]: AceStepLogo
+  [backendOptionsMap.aceStep]: AceStepLogo,
+  // vLLM-Omni is a vLLM-based engine; reuse the vLLM logo.
+  [backendOptionsMap.vllmOmni]: vLLMLogo
 };
 
 export const BackendSourceValueMap = {

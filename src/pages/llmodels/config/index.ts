@@ -51,7 +51,9 @@ export const backendLabelMap = {
   [backendOptionsMap.voxBox]: 'vox-box',
   [backendOptionsMap.ascendMindie]: 'Ascend MindIE',
   [backendOptionsMap.custom]: 'Custom',
-  [backendOptionsMap.lightX2V]: 'LightX2V'
+  [backendOptionsMap.lightX2V]: 'LightX2V',
+  [backendOptionsMap.aceStep]: 'ACEStep',
+  [backendOptionsMap.vllmOmni]: 'vLLM-Omni'
 };
 
 export const backendParamsHolderTips = {
