@@ -1,5 +1,6 @@
 import AceStepLogo from '@/assets/logo/acestep.png';
 import MindIELogo from '@/assets/logo/ascend.png';
+import IndexTTSLogo from '@/assets/logo/indextts.png';
 import LightX2VLogo from '@/assets/logo/lightx2v.png';
 import SGLangLogo from '@/assets/logo/sglang.png';
 import vLLMLogo from '@/assets/logo/vllm.png';
@@ -34,7 +35,8 @@ export const builtInBackendLogos: Record<string, string> = {
   // vLLM-Omni is a vLLM-based engine; reuse the vLLM logo.
   [backendOptionsMap.vllmOmni]: vLLMLogo,
   // Bernini is a video engine like LightX2V; reuse its logo until a dedicated one lands.
-  [backendOptionsMap.bernini]: LightX2VLogo
+  [backendOptionsMap.bernini]: LightX2VLogo,
+  [backendOptionsMap.indexTTS]: IndexTTSLogo
 };
 
 export const BackendSourceValueMap = {
