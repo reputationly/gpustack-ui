@@ -74,6 +74,9 @@ jobs:
     if: github.event_name == 'push'
     timeout-minutes: 30
     runs-on: ubuntu-22.04
+    env:
+      # Upstream publishes to Tencent COS; forks without the secret skip the upload.
+      COS_ENABLED: ${{ secrets.CI_TECENTCOS_SECRET_ID != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -107,6 +110,7 @@ jobs:
         env:
           VERSION: '${{ steps.version.outputs.version }}'
       - name: Release
+        if: ${{ env.COS_ENABLED == 'true' }}
         uses: TencentCloud/cos-action@b0aa648235fb35a1bdd6a77f529eb0ac4c2f1c25
         with:
           secret_id: ${{ secrets.CI_TECENTCOS_SECRET_ID }}
