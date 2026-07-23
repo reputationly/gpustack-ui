@@ -54,8 +54,7 @@ export const backendLabelMap = {
   [backendOptionsMap.lightX2V]: 'LightX2V',
   [backendOptionsMap.aceStep]: 'ACEStep',
   [backendOptionsMap.vllmOmni]: 'vLLM-Omni',
-  [backendOptionsMap.bernini]: 'Bernini',
-  [backendOptionsMap.indexTTS]: 'IndexTTS'
+  [backendOptionsMap.bernini]: 'Bernini'
 };
 
 export const backendParamsHolderTips = {

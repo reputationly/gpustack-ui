@@ -21,9 +21,7 @@ export const backendOptionsMap = {
   // Must match the backend name returned by the API (BackendEnum.VLLM_OMNI).
   vllmOmni: 'vLLMOmni',
   // Must match the backend name returned by the API (BackendEnum.BERNINI).
-  bernini: 'Bernini',
-  // Must match the backend name returned by the API (BackendEnum.INDEXTTS).
-  indexTTS: 'IndexTTS'
+  bernini: 'Bernini'
 };
 
 // for checking built-in backends when selecting a gguf
