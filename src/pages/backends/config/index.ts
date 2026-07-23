@@ -32,7 +32,9 @@ export const builtInBackendLogos: Record<string, string> = {
   [backendOptionsMap.lightX2V]: LightX2VLogo,
   [backendOptionsMap.aceStep]: AceStepLogo,
   // vLLM-Omni is a vLLM-based engine; reuse the vLLM logo.
-  [backendOptionsMap.vllmOmni]: vLLMLogo
+  [backendOptionsMap.vllmOmni]: vLLMLogo,
+  // Bernini is a video engine like LightX2V; reuse its logo until a dedicated one lands.
+  [backendOptionsMap.bernini]: LightX2VLogo
 };
 
 export const BackendSourceValueMap = {

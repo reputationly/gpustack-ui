@@ -53,7 +53,8 @@ export const backendLabelMap = {
   [backendOptionsMap.custom]: 'Custom',
   [backendOptionsMap.lightX2V]: 'LightX2V',
   [backendOptionsMap.aceStep]: 'ACEStep',
-  [backendOptionsMap.vllmOmni]: 'vLLM-Omni'
+  [backendOptionsMap.vllmOmni]: 'vLLM-Omni',
+  [backendOptionsMap.bernini]: 'Bernini'
 };
 
 export const backendParamsHolderTips = {
