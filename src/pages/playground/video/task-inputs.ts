@@ -3,7 +3,14 @@
 // (inferTaskType) heuristics so the UI can show the right upload controls
 // without depending on model meta carrying an explicit task_type.
 
-export type VideoTaskType = 't2v' | 'i2v' | 'flf2v' | 's2v' | 'sr' | 'vace';
+export type VideoTaskType =
+  | 't2v'
+  | 'i2v'
+  | 'flf2v'
+  | 's2v'
+  | 'sr'
+  | 'vace'
+  | 'v2a';
 
 export interface VideoInputField {
   field: string; // facade input field (image/audio/video/src_video/src_mask/src_ref_images/last_frame)
@@ -20,7 +27,8 @@ const KNOWN_TASK_TYPES: VideoTaskType[] = [
   'flf2v',
   's2v',
   'sr',
-  'vace'
+  'vace',
+  'v2a'
 ];
 
 // Prefer an explicit meta.task_type when the deploy set one; otherwise infer
@@ -38,6 +46,11 @@ export const inferVideoTaskType = (
   if (m.includes('infinitetalk') || m.includes('s2v')) return 's2v';
   if (m.includes('seedvr') || m.includes('-sr') || m.endsWith('sr'))
     return 'sr';
+  // Video dubbing (v2a): SAME pixels back + AI audio track (.mp4). Match the
+  // task token only ('v2a'/'dub', e.g. deploy name "ltx2-v2a"), NOT the model
+  // family: plain LTX generation checkpoints (LTX-Video t2v/i2v, ltx2 t2av)
+  // must fall through to their own branches / the t2v default.
+  if (m.includes('v2a') || m.includes('dub')) return 'v2a';
   if (m.includes('vace')) return 'vace';
   if (m.includes('flf2v')) return 'flf2v';
   if (m.includes('i2v')) return 'i2v';
@@ -94,6 +107,15 @@ export const videoTaskInputs: Record<VideoTaskType, VideoInputField[]> = {
     }
   ],
   sr: [
+    {
+      field: 'video',
+      labelId: 'playground.video.input.video',
+      accept: VIDEO_ACCEPT,
+      kind: 'video',
+      required: true
+    }
+  ],
+  v2a: [
     {
       field: 'video',
       labelId: 'playground.video.input.video',
