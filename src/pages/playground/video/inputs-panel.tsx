@@ -10,9 +10,11 @@ import {
   videoTaskInputs
 } from './task-inputs';
 
-// Max files a multi-value field (src_ref_images) accepts — mirrors the facade
-// _MAX_INPUT_IMAGES so the UI blocks over-count before hitting the server.
+// Max files a multi-value field accepts — mirrors the facade caps so the UI
+// blocks over-count before hitting the server: images (src_ref_images) 5
+// (_MAX_INPUT_IMAGES), videos (src_video for mv2v/ads2v) 2 (_MAX_INPUT_VIDEOS).
 const MAX_MULTI = 5;
+const MAX_MULTI_VIDEOS = 2;
 
 export interface VideoInputsValue {
   files: Record<string, File[]>;
@@ -84,7 +86,11 @@ const InputsPanel: React.FC<InputsPanelProps> = ({
 
   const renderUpload = (cfg: VideoInputField) => {
     const list = fileMap[cfg.field] || [];
-    const maxCount = cfg.multiple ? MAX_MULTI : 1;
+    const maxCount = cfg.multiple
+      ? cfg.kind === 'video'
+        ? MAX_MULTI_VIDEOS
+        : MAX_MULTI
+      : 1;
     const label = intl.formatMessage({ id: cfg.labelId });
     return (
       <div key={cfg.field} style={{ marginBottom: 16 }}>

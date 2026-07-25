@@ -4,11 +4,12 @@ import routeCachekey from '@/config/route-cachekey';
 import { VideoCameraOutlined } from '@ant-design/icons';
 import { AlertInfo, IconFont } from '@gpustack/core-ui';
 import { useIntl } from '@umijs/max';
-import { Button, Spin, Tooltip } from 'antd';
+import { Button, Select, Spin, Tooltip } from 'antd';
 import _ from 'lodash';
 import React, {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -27,9 +28,12 @@ import { generateCode } from '../view-code/video';
 import DataForm from './forms';
 import InputsPanel, { VideoInputsValue } from './inputs-panel';
 import {
+  BERNINI_TASK_TYPES,
   inferVideoTaskType,
+  isBerniniModel,
   taskHasSrRatio,
-  videoTaskInputs
+  videoTaskInputs,
+  VideoTaskType
 } from './task-inputs';
 
 interface MessageProps {
@@ -85,7 +89,23 @@ const GroundVideo: React.FC<MessageProps> = forwardRef((props, ref) => {
   const currentModelMeta = modelList.find(
     (m: any) => m.value === parameters.model
   )?.meta;
-  const taskType = inferVideoTaskType(parameters.model, currentModelMeta);
+  const inferredTaskType = inferVideoTaskType(
+    parameters.model,
+    currentModelMeta
+  );
+  // Bernini serves five playstyles from ONE model (name inference can only give
+  // the v2v default), so expose an explicit playstyle selector; other engines
+  // keep the inferred type. Reset the override when the model changes.
+  const berniniSelectable =
+    isBerniniModel(parameters.model) && !(currentModelMeta as any)?.task_type;
+  const [taskTypeOverride, setTaskTypeOverride] = useState<VideoTaskType | ''>(
+    ''
+  );
+  useEffect(() => {
+    setTaskTypeOverride('');
+  }, [parameters.model]);
+  const taskType =
+    berniniSelectable && taskTypeOverride ? taskTypeOverride : inferredTaskType;
 
   useImperativeHandle(ref, () => {
     return {
@@ -134,10 +154,15 @@ const GroundVideo: React.FC<MessageProps> = forwardRef((props, ref) => {
       isFormdata: false,
       parameters: {
         ...finalParameters,
+        // Mirror the real submit body (generateParams): task_type is always
+        // sent, and with the Bernini playstyle selector it can differ from the
+        // model-name inference — omitting it here would make the copied
+        // curl/Python example silently fall back to the engine default.
+        task_type: taskType,
         prompt: currentPrompt
       }
     });
-  }, [finalParameters, isOpenaiCompatible, currentPrompt]);
+  }, [finalParameters, isOpenaiCompatible, currentPrompt, taskType]);
 
   const handleInputChange = (e: any) => {
     setCurrentPrompt(e.target.value);
@@ -180,6 +205,16 @@ const GroundVideo: React.FC<MessageProps> = forwardRef((props, ref) => {
       !(files.src_ref_images || []).length
     ) {
       return intl.formatMessage({ id: 'playground.video.input.vaceRequired' });
+    }
+    // mv2v/ads2v need exactly TWO source videos (facade rejects otherwise).
+    if (
+      (taskType === 'mv2v' || taskType === 'ads2v') &&
+      (files.src_video || []).length !== 2
+    ) {
+      return intl.formatMessage(
+        { id: 'playground.video.input.needTwoVideos' },
+        { type: taskType }
+      );
     }
     // Mirror the facade's "src_mask requires src_video" cross-field constraint so
     // a mask-without-source-video upload isn't started only to be rejected.
@@ -339,6 +374,22 @@ const GroundVideo: React.FC<MessageProps> = forwardRef((props, ref) => {
           initialValues={initialValues}
           modelList={modelList}
         />
+        {berniniSelectable && (
+          <div style={{ padding: '0 12px 8px' }}>
+            <Select
+              style={{ width: '100%' }}
+              value={taskType}
+              disabled={loading}
+              onChange={(v) => setTaskTypeOverride(v as VideoTaskType)}
+              options={BERNINI_TASK_TYPES.map((t) => ({
+                value: t,
+                label: intl.formatMessage({
+                  id: `playground.video.taskType.${t}`
+                })
+              }))}
+            />
+          </div>
+        )}
         <InputsPanel
           taskType={taskType}
           disabled={loading}

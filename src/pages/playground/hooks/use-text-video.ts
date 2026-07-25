@@ -124,20 +124,35 @@ export default function useTextVideo(props: any) {
         const inputRefs: Record<string, string[]> = {};
         let uploadUserId: any;
         for (const field of inputFields) {
-          const up = await uploadVideoInput({
-            taskType,
-            model: parameters.model,
-            field,
-            files: rawInputs[field],
-            token: requestToken.current.token
-          });
-          if (isStale(currentRequestId)) return;
-          if (!up || up.error || !up.input_refs) {
-            setError(up);
-            return;
+          // Video files are uploaded ONE PER REQUEST: the facade's pre-parse
+          // Content-Length ceiling is sized to a single max file, so a two-video
+          // mv2v/ads2v upload must not batch both into one multipart body.
+          // Image fields (src_ref_images) stay batched — they fit comfortably.
+          const batches: File[][] =
+            field === 'src_video' && (rawInputs[field] || []).length > 1
+              ? rawInputs[field].map((f) => [f])
+              : [rawInputs[field]];
+          for (const files of batches) {
+            const up = await uploadVideoInput({
+              taskType,
+              model: parameters.model,
+              field,
+              files,
+              token: requestToken.current.token
+            });
+            if (isStale(currentRequestId)) return;
+            if (!up || up.error || !up.input_refs) {
+              setError(up);
+              return;
+            }
+            // Merge per-field ref ARRAYS (a later batch must append, not clobber).
+            for (const [k, refs] of Object.entries(
+              up.input_refs as Record<string, string[]>
+            )) {
+              inputRefs[k] = [...(inputRefs[k] || []), ...(refs || [])];
+            }
+            uploadUserId = up.user_id;
           }
-          Object.assign(inputRefs, up.input_refs);
-          uploadUserId = up.user_id;
         }
         body.input_refs = inputRefs;
         if (uploadUserId !== undefined) {

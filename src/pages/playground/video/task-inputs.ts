@@ -10,7 +10,16 @@ export type VideoTaskType =
   | 's2v'
   | 'sr'
   | 'vace'
-  | 'v2a';
+  | 'v2a'
+  // Bernini video playstyles (task_type drives the engine's system prompt +
+  // guidance): v2v single-source edit, rv2v source+reference-images edit,
+  // r2v reference-images -> video, mv2v/ads2v TWO source videos (multi-source
+  // edit / ad insertion — same inputs, different engine recipe).
+  | 'v2v'
+  | 'rv2v'
+  | 'r2v'
+  | 'mv2v'
+  | 'ads2v';
 
 export interface VideoInputField {
   field: string; // facade input field (image/audio/video/src_video/src_mask/src_ref_images/last_frame)
@@ -28,7 +37,12 @@ const KNOWN_TASK_TYPES: VideoTaskType[] = [
   's2v',
   'sr',
   'vace',
-  'v2a'
+  'v2a',
+  'v2v',
+  'rv2v',
+  'r2v',
+  'mv2v',
+  'ads2v'
 ];
 
 // Prefer an explicit meta.task_type when the deploy set one; otherwise infer
@@ -52,10 +66,31 @@ export const inferVideoTaskType = (
   // must fall through to their own branches / the t2v default.
   if (m.includes('v2a') || m.includes('dub')) return 'v2a';
   if (m.includes('vace')) return 'vace';
+  // Bernini serves t2v/v2v/rv2v/r2v/mv2v/ads2v from ONE model; the name only
+  // gives a default — t2v (zero-input, always submittable, same as the old
+  // fall-through). Pick edit/reference playstyles via an explicit
+  // meta.task_type or the playground's task-type selector.
+  if (m.includes('bernini')) return 't2v';
   if (m.includes('flf2v')) return 'flf2v';
   if (m.includes('i2v')) return 'i2v';
   return 't2v';
 };
+
+// Bernini playstyle set for the playground's explicit selector (one model, six
+// task types incl. plain text-to-video; ads2v shares mv2v's inputs but a
+// different engine recipe). t2v FIRST: it is the zero-input default, so a
+// Bernini deploy without meta.task_type stays submittable with no uploads.
+export const BERNINI_TASK_TYPES: VideoTaskType[] = [
+  't2v',
+  'v2v',
+  'rv2v',
+  'r2v',
+  'mv2v',
+  'ads2v'
+];
+
+export const isBerniniModel = (modelName: string) =>
+  (modelName || '').toLowerCase().includes('bernini');
 
 const IMAGE_ACCEPT = 'image/png,image/jpeg,image/jpg,image/webp';
 const AUDIO_ACCEPT = 'audio/*,.wav,.mp3,.m4a';
@@ -121,6 +156,65 @@ export const videoTaskInputs: Record<VideoTaskType, VideoInputField[]> = {
       labelId: 'playground.video.input.video',
       accept: VIDEO_ACCEPT,
       kind: 'video',
+      required: true
+    }
+  ],
+  v2v: [
+    {
+      field: 'src_video',
+      labelId: 'playground.video.input.srcVideo',
+      accept: VIDEO_ACCEPT,
+      kind: 'video',
+      required: true
+    }
+  ],
+  rv2v: [
+    {
+      field: 'src_video',
+      labelId: 'playground.video.input.srcVideo',
+      accept: VIDEO_ACCEPT,
+      kind: 'video',
+      required: true
+    },
+    {
+      field: 'src_ref_images',
+      labelId: 'playground.video.input.srcRefImages',
+      accept: IMAGE_ACCEPT,
+      kind: 'image',
+      multiple: true,
+      required: true
+    }
+  ],
+  r2v: [
+    {
+      field: 'src_ref_images',
+      labelId: 'playground.video.input.srcRefImages',
+      accept: IMAGE_ACCEPT,
+      kind: 'image',
+      multiple: true,
+      required: true
+    }
+  ],
+  // mv2v/ads2v: exactly TWO source videos (facade caps src_video at 2 for these
+  // task types only). Each video is uploaded in its own request (body ceiling
+  // is sized to one max file — see use-text-video upload loop).
+  mv2v: [
+    {
+      field: 'src_video',
+      labelId: 'playground.video.input.srcVideo',
+      accept: VIDEO_ACCEPT,
+      kind: 'video',
+      multiple: true,
+      required: true
+    }
+  ],
+  ads2v: [
+    {
+      field: 'src_video',
+      labelId: 'playground.video.input.srcVideo',
+      accept: VIDEO_ACCEPT,
+      kind: 'video',
+      multiple: true,
       required: true
     }
   ],

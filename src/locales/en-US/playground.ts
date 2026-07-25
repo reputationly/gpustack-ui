@@ -79,6 +79,14 @@ export default {
     'VACE needs a source video or a reference image',
   'playground.video.input.maskNeedsVideo':
     'A mask video must be provided together with a source video',
+  'playground.video.input.needTwoVideos':
+    '{type} needs exactly two source videos',
+  'playground.video.taskType.t2v': 't2v · Text to video',
+  'playground.video.taskType.v2v': 'v2v · Video edit (prompt only)',
+  'playground.video.taskType.rv2v': 'rv2v · Edit with reference images',
+  'playground.video.taskType.r2v': 'r2v · Reference images to video',
+  'playground.video.taskType.mv2v': 'mv2v · Two-video multi-source edit',
+  'playground.video.taskType.ads2v': 'ads2v · Two-video ad insertion',
   'playground.params.standard': 'Standard',
   'playground.params.hd': 'HD',
   'playground.params.style.vivid': 'Vivid',
