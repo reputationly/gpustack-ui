@@ -67,6 +67,10 @@ export default {
   'playground.video.input.image': '画像',
   'playground.video.input.firstFrame': '最初のフレーム',
   'playground.video.input.lastFrame': '最後のフレーム',
+  'playground.video.input.lastFrameOnly': '最後のフレーム（逆生成）',
+  'playground.video.input.referenceImages': '参照画像',
+  'playground.video.input.referenceVideos': '参照動画',
+  'playground.video.input.referenceAudios': '音色リファレンス',
   'playground.video.input.portrait': '人物画像',
   'playground.video.input.audio': '駆動音声',
   'playground.video.input.video': 'ソース動画',
@@ -81,12 +85,20 @@ export default {
     'マスク動画はソース動画と一緒に指定する必要があります',
   'playground.video.input.needTwoVideos':
     '{type} needs exactly two source videos',
+  'playground.video.input.r2vaRequired':
+    '参照動画生成には参照画像または参照動画が少なくとも 1 つ必要です。音声参照だけでは生成できません',
+  'playground.video.input.r2vaTooManyRefs':
+    '参照素材は合計 {max} 個までです（画像 + 動画 + 音声）。現在 {total} 個',
   'playground.video.taskType.t2v': 't2v · Text to video',
   'playground.video.taskType.v2v': 'v2v · Video edit (prompt only)',
   'playground.video.taskType.rv2v': 'rv2v · Edit with reference images',
   'playground.video.taskType.r2v': 'r2v · Reference images to video',
   'playground.video.taskType.mv2v': 'mv2v · Two-video multi-source edit',
   'playground.video.taskType.ads2v': 'ads2v · Two-video ad insertion',
+  'playground.video.taskType.i2v': 'i2v · First frame to video',
+  'playground.video.taskType.l2va':
+    'l2va · Last frame to video (works backwards)',
+  'playground.video.taskType.flf2v': 'flf2v · First + last frame',
   'playground.params.standard': '標準',
   'playground.params.hd': 'HD',
   'playground.params.style.vivid': '鮮やか',

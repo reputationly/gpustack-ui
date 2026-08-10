@@ -67,6 +67,10 @@ export default {
   'playground.video.input.image': 'Изображение',
   'playground.video.input.firstFrame': 'Первый кадр',
   'playground.video.input.lastFrame': 'Последний кадр',
+  'playground.video.input.lastFrameOnly': 'Последний кадр (обратная генерация)',
+  'playground.video.input.referenceImages': 'Референсные изображения',
+  'playground.video.input.referenceVideos': 'Референсные видео',
+  'playground.video.input.referenceAudios': 'Референс тембра',
   'playground.video.input.portrait': 'Портретное изображение',
   'playground.video.input.audio': 'Управляющее аудио',
   'playground.video.input.video': 'Исходное видео',
@@ -81,12 +85,20 @@ export default {
     'Маска-видео должна предоставляться вместе с исходным видео',
   'playground.video.input.needTwoVideos':
     '{type} needs exactly two source videos',
+  'playground.video.input.r2vaRequired':
+    'Генерация по референсам требует минимум одно референсное изображение или видео. Одного голосового референса недостаточно',
+  'playground.video.input.r2vaTooManyRefs':
+    'Всего не более {max} референсов (изображения + видео + аудио), сейчас {total}',
   'playground.video.taskType.t2v': 't2v · Text to video',
   'playground.video.taskType.v2v': 'v2v · Video edit (prompt only)',
   'playground.video.taskType.rv2v': 'rv2v · Edit with reference images',
   'playground.video.taskType.r2v': 'r2v · Reference images to video',
   'playground.video.taskType.mv2v': 'mv2v · Two-video multi-source edit',
   'playground.video.taskType.ads2v': 'ads2v · Two-video ad insertion',
+  'playground.video.taskType.i2v': 'i2v · First frame to video',
+  'playground.video.taskType.l2va':
+    'l2va · Last frame to video (works backwards)',
+  'playground.video.taskType.flf2v': 'flf2v · First + last frame',
   'playground.params.standard': 'Стандарт',
   'playground.params.hd': 'HD',
   'playground.params.style.vivid': 'Яркий',

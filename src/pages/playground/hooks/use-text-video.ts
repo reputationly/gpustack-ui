@@ -10,6 +10,7 @@ import {
   getVideoTask,
   uploadVideoInput
 } from '../apis';
+import { VIDEO_UPLOAD_FIELDS } from '../video/task-inputs';
 
 // Interval between GET /videos/{id} polls. Each GET makes the server refresh the
 // task from its instance (poll-on-GET), so this is the effective progress cadence.
@@ -125,11 +126,14 @@ export default function useTextVideo(props: any) {
         let uploadUserId: any;
         for (const field of inputFields) {
           // Video files are uploaded ONE PER REQUEST: the facade's pre-parse
-          // Content-Length ceiling is sized to a single max file, so a two-video
-          // mv2v/ads2v upload must not batch both into one multipart body.
-          // Image fields (src_ref_images) stay batched — they fit comfortably.
+          // Content-Length ceiling is sized to a single max file, so neither a
+          // two-video mv2v/ads2v upload nor r2va's up-to-three reference videos
+          // may batch into one multipart body. Keyed off the field SET rather
+          // than one field name — r2va's reference videos ride "video", not
+          // "src_video". Image/audio fields stay batched — they fit comfortably.
           const batches: File[][] =
-            field === 'src_video' && (rawInputs[field] || []).length > 1
+            VIDEO_UPLOAD_FIELDS.has(field) &&
+            (rawInputs[field] || []).length > 1
               ? rawInputs[field].map((f) => [f])
               : [rawInputs[field]];
           for (const files of batches) {

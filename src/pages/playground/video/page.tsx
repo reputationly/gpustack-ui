@@ -29,10 +29,13 @@ import DataForm from './forms';
 import InputsPanel, { VideoInputsValue } from './inputs-panel';
 import {
   BERNINI_TASK_TYPES,
+  H3_FL2VA_TASK_TYPES,
   inferVideoTaskType,
   isBerniniModel,
+  isH3Fl2vaModel,
+  isKnownVideoTaskType,
   taskHasSrRatio,
-  videoTaskInputs,
+  validateVideoInputs,
   VideoTaskType
 } from './task-inputs';
 
@@ -93,19 +96,40 @@ const GroundVideo: React.FC<MessageProps> = forwardRef((props, ref) => {
     parameters.model,
     currentModelMeta
   );
-  // Bernini serves five playstyles from ONE model (name inference can only give
-  // the v2v default), so expose an explicit playstyle selector; other engines
-  // keep the inferred type. Reset the override when the model changes.
-  const berniniSelectable =
-    isBerniniModel(parameters.model) && !(currentModelMeta as any)?.task_type;
+  // Some deploys serve several playstyles from ONE weight set, so the model name
+  // can only give a default — those get an explicit selector. An empty list
+  // means the inferred type is the only option.
+  //   Bernini  — six playstyles, name gives t2v.
+  //   H3 fl2va — four playstyles, name gives t2v; i2v/l2va are indistinguishable
+  //              by input shape, so nothing but this selector can reach them.
+  //
+  // A deploy that pins a RECOGNIZED meta.task_type is the operator's decision
+  // and gets no selector. The recognition test has to be the same one
+  // inferVideoTaskType applies — gating on mere truthiness would leave a typo'd
+  // or engine-vocabulary value with neither the pin (inference ignores it and
+  // falls back to the model name) nor the selector (suppressed as "pinned").
+  const selectableTaskTypes: VideoTaskType[] = isKnownVideoTaskType(
+    (currentModelMeta as any)?.task_type
+  )
+    ? []
+    : isBerniniModel(parameters.model)
+      ? BERNINI_TASK_TYPES
+      : isH3Fl2vaModel(parameters.model)
+        ? H3_FL2VA_TASK_TYPES
+        : [];
   const [taskTypeOverride, setTaskTypeOverride] = useState<VideoTaskType | ''>(
     ''
   );
   useEffect(() => {
     setTaskTypeOverride('');
   }, [parameters.model]);
+  // Membership check, not just truthiness: it makes a stale override from a
+  // previously selected model unusable during render, without depending on the
+  // reset effect above having run first.
   const taskType =
-    berniniSelectable && taskTypeOverride ? taskTypeOverride : inferredTaskType;
+    taskTypeOverride && selectableTaskTypes.includes(taskTypeOverride)
+      ? taskTypeOverride
+      : inferredTaskType;
 
   useImperativeHandle(ref, () => {
     return {
@@ -184,50 +208,21 @@ const GroundVideo: React.FC<MessageProps> = forwardRef((props, ref) => {
     return params;
   };
 
-  // Client-side input guard (the facade re-validates authoritatively): required
-  // fields must be present; vace needs a source video or reference image.
+  // Resolve the rule violated by the current selection into a display string.
+  // The rules themselves live in validateVideoInputs (pure, unit-tested); this
+  // only turns the returned descriptor into text.
   const missingInputMessage = (): string => {
-    const files = inputsValue.files || {};
-    const required = (videoTaskInputs[taskType] || []).filter(
-      (f) => f.required
-    );
-    for (const f of required) {
-      if (!(files[f.field] || []).length) {
-        return intl.formatMessage(
-          { id: 'playground.video.input.required' },
-          { field: intl.formatMessage({ id: f.labelId }) }
-        );
+    const err = validateVideoInputs(taskType, inputsValue.files || {});
+    if (!err) return '';
+    return intl.formatMessage(
+      { id: err.id },
+      {
+        ...(err.values || {}),
+        ..._.mapValues(err.labelIdValues || {}, (id: string) =>
+          intl.formatMessage({ id })
+        )
       }
-    }
-    if (
-      taskType === 'vace' &&
-      !(files.src_video || []).length &&
-      !(files.src_ref_images || []).length
-    ) {
-      return intl.formatMessage({ id: 'playground.video.input.vaceRequired' });
-    }
-    // mv2v/ads2v need exactly TWO source videos (facade rejects otherwise).
-    if (
-      (taskType === 'mv2v' || taskType === 'ads2v') &&
-      (files.src_video || []).length !== 2
-    ) {
-      return intl.formatMessage(
-        { id: 'playground.video.input.needTwoVideos' },
-        { type: taskType }
-      );
-    }
-    // Mirror the facade's "src_mask requires src_video" cross-field constraint so
-    // a mask-without-source-video upload isn't started only to be rejected.
-    if (
-      taskType === 'vace' &&
-      (files.src_mask || []).length &&
-      !(files.src_video || []).length
-    ) {
-      return intl.formatMessage({
-        id: 'playground.video.input.maskNeedsVideo'
-      });
-    }
-    return '';
+    );
   };
 
   const handleSendMessage = async () => {
@@ -374,14 +369,14 @@ const GroundVideo: React.FC<MessageProps> = forwardRef((props, ref) => {
           initialValues={initialValues}
           modelList={modelList}
         />
-        {berniniSelectable && (
+        {selectableTaskTypes.length > 0 && (
           <div style={{ padding: '0 12px 8px' }}>
             <Select
               style={{ width: '100%' }}
               value={taskType}
               disabled={loading}
               onChange={(v) => setTaskTypeOverride(v as VideoTaskType)}
-              options={BERNINI_TASK_TYPES.map((t) => ({
+              options={selectableTaskTypes.map((t) => ({
                 value: t,
                 label: intl.formatMessage({
                   id: `playground.video.taskType.${t}`

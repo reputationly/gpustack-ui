@@ -67,6 +67,10 @@ export default {
   'playground.video.input.image': 'Image',
   'playground.video.input.firstFrame': 'First frame',
   'playground.video.input.lastFrame': 'Last frame',
+  'playground.video.input.lastFrameOnly': 'Last frame (work backwards)',
+  'playground.video.input.referenceImages': 'Reference images',
+  'playground.video.input.referenceVideos': 'Reference videos',
+  'playground.video.input.referenceAudios': 'Voice reference',
   'playground.video.input.portrait': 'Portrait image',
   'playground.video.input.audio': 'Driving audio',
   'playground.video.input.video': 'Source video',
@@ -81,12 +85,20 @@ export default {
     'A mask video must be provided together with a source video',
   'playground.video.input.needTwoVideos':
     '{type} needs exactly two source videos',
+  'playground.video.input.r2vaRequired':
+    'Reference video needs at least one reference image or reference video. A voice reference alone is not enough',
+  'playground.video.input.r2vaTooManyRefs':
+    'At most {max} references in total (images + videos + audio), got {total}',
   'playground.video.taskType.t2v': 't2v · Text to video',
   'playground.video.taskType.v2v': 'v2v · Video edit (prompt only)',
   'playground.video.taskType.rv2v': 'rv2v · Edit with reference images',
   'playground.video.taskType.r2v': 'r2v · Reference images to video',
   'playground.video.taskType.mv2v': 'mv2v · Two-video multi-source edit',
   'playground.video.taskType.ads2v': 'ads2v · Two-video ad insertion',
+  'playground.video.taskType.i2v': 'i2v · First frame to video',
+  'playground.video.taskType.l2va':
+    'l2va · Last frame to video (works backwards)',
+  'playground.video.taskType.flf2v': 'flf2v · First + last frame',
   'playground.params.standard': 'Standard',
   'playground.params.hd': 'HD',
   'playground.params.style.vivid': 'Vivid',

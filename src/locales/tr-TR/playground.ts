@@ -67,6 +67,10 @@ export default {
   'playground.video.input.image': 'Görsel',
   'playground.video.input.firstFrame': 'İlk kare',
   'playground.video.input.lastFrame': 'Son kare',
+  'playground.video.input.lastFrameOnly': 'Son kare (geriye doğru)',
+  'playground.video.input.referenceImages': 'Referans görseller',
+  'playground.video.input.referenceVideos': 'Referans videolar',
+  'playground.video.input.referenceAudios': 'Ses tınısı referansı',
   'playground.video.input.portrait': 'Portre görseli',
   'playground.video.input.audio': 'Sürücü ses',
   'playground.video.input.video': 'Kaynak video',
@@ -81,12 +85,20 @@ export default {
     'Maske videosu bir kaynak video ile birlikte sağlanmalıdır',
   'playground.video.input.needTwoVideos':
     '{type} needs exactly two source videos',
+  'playground.video.input.r2vaRequired':
+    'Referanstan video için en az bir referans görsel veya referans video gerekir. Yalnızca ses referansı yeterli değildir',
+  'playground.video.input.r2vaTooManyRefs':
+    'Toplamda en fazla {max} referans (görsel + video + ses), şu an {total}',
   'playground.video.taskType.t2v': 't2v · Text to video',
   'playground.video.taskType.v2v': 'v2v · Video edit (prompt only)',
   'playground.video.taskType.rv2v': 'rv2v · Edit with reference images',
   'playground.video.taskType.r2v': 'r2v · Reference images to video',
   'playground.video.taskType.mv2v': 'mv2v · Two-video multi-source edit',
   'playground.video.taskType.ads2v': 'ads2v · Two-video ad insertion',
+  'playground.video.taskType.i2v': 'i2v · First frame to video',
+  'playground.video.taskType.l2va':
+    'l2va · Last frame to video (works backwards)',
+  'playground.video.taskType.flf2v': 'flf2v · First + last frame',
   'playground.params.standard': 'Standart',
   'playground.params.hd': 'HD',
   'playground.params.style.vivid': 'Canlı',
