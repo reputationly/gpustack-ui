@@ -15,6 +15,8 @@ export default {
   'storageSettings.lowWatermark': 'Low Watermark',
   'storageSettings.watermark.tips':
     'When output filesystem usage exceeds the high watermark (0-1), the janitor evicts oldest results down to the low watermark.',
+  'storageSettings.loadFailed.tips':
+    'Could not load the current configuration, so saving is disabled — submitting now would overwrite the live per-model tables with an empty one. Reload the page and try again.',
   'storageSettings.admission.section':
     'Queue / Backpressure (Admission Control)',
   'storageSettings.admission.enabled': 'Enable Admission Control',
@@ -29,10 +31,22 @@ export default {
   'storageSettings.admission.audioWait': 'Audio Max Queue Wait (s)',
   'storageSettings.admission.audioWait.tips':
     'Tolerated queue wait for the asynchronous audio (TTS) link (short lines at RTF~3, per-instance FIFO of 8, ~60s).',
+  'storageSettings.admission.musicWait': 'Music Max Queue Wait (s)',
+  'storageSettings.admission.musicWait.tips':
+    'Tolerated queue wait for the asynchronous music link (ACE-Step generates a clip in ~10-30s warm behind a per-instance FIFO, ~90s).',
+  'storageSettings.admission.audiogenWait':
+    'Audio Generation Max Queue Wait (s)',
+  'storageSettings.admission.audiogenWait.tips':
+    'Tolerated queue wait for diffusion audio (AudioX sound effects / SoulX singing voice, ~90s).',
   'storageSettings.admission.latencyTable': 'Per-model Latency (s)',
   'storageSettings.admission.latencyTable.tips':
-    'Single-instance hot-state generation seconds per model (substring match, case-insensitive). Drives the estimate = floor(queued / running instances) × latency. Unknown models fall back to a per-kind default.',
+    'Single-instance hot-state generation seconds per model (substring match, case-insensitive, FIRST matching row wins — put longer names above shorter ones, e.g. qwen-image-edit above qwen-image). Drives the estimate = floor(queued / running instances) × latency. Unknown models fall back to a per-kind default.',
+  'storageSettings.admission.queueWaitTable': 'Per-model Max Queue Wait (s)',
+  'storageSettings.admission.queueWaitTable.tips':
+    'Overrides the per-kind ceilings above for one model (same substring matching and row-order precedence). Use it when a kind mixes fast and slow models — e.g. the image kind holds both z-image (~8s) and HunyuanImage-3 (~110s), and a single shared ceiling cannot serve both. Leave empty to use the per-kind value.',
   'storageSettings.admission.modelName': 'Model name (substring)',
   'storageSettings.admission.seconds': 'Seconds',
-  'storageSettings.admission.addModel': '+ Add model'
+  'storageSettings.admission.addModel': '+ Add model',
+  'storageSettings.admission.moveUp': 'Move up (higher match priority)',
+  'storageSettings.admission.moveDown': 'Move down (lower match priority)'
 };

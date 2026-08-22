@@ -15,6 +15,8 @@ export default {
   'storageSettings.lowWatermark': 'Low Watermark',
   'storageSettings.watermark.tips':
     'When output filesystem usage exceeds the high watermark (0-1), the janitor evicts oldest results down to the low watermark.',
+  'storageSettings.loadFailed.tips':
+    'Could not load the current configuration, so saving is disabled (submitting now would wipe the live per-model tables). Reload and retry.',
   'storageSettings.admission.section':
     'Queue / Backpressure (Admission Control)',
   'storageSettings.admission.enabled': 'Enable Admission Control',
@@ -29,10 +31,22 @@ export default {
   'storageSettings.admission.audioWait': 'Audio Max Queue Wait (s)',
   'storageSettings.admission.audioWait.tips':
     'Tolerated queue wait for the asynchronous audio (TTS) link (~60s).',
+  'storageSettings.admission.musicWait': 'Music Max Queue Wait (s)',
+  'storageSettings.admission.musicWait.tips':
+    'Tolerated queue wait for the asynchronous music link (~90s).',
+  'storageSettings.admission.audiogenWait':
+    'Audio Generation Max Queue Wait (s)',
+  'storageSettings.admission.audiogenWait.tips':
+    'Tolerated queue wait for diffusion audio (AudioX / SoulX, ~90s).',
   'storageSettings.admission.latencyTable': 'Per-model Latency (s)',
   'storageSettings.admission.latencyTable.tips':
-    'Single-instance hot-state generation seconds per model (substring match). Estimate = floor(queued / running instances) × latency.',
+    'Single-instance hot-state generation seconds per model (substring match, FIRST matching row wins — put longer names above shorter ones). Estimate = floor(queued / running instances) × latency.',
+  'storageSettings.admission.queueWaitTable': 'Per-model Max Queue Wait (s)',
+  'storageSettings.admission.queueWaitTable.tips':
+    'Overrides the per-kind ceilings above for one model (same matching and row-order precedence). Leave empty to use the per-kind value.',
   'storageSettings.admission.modelName': 'Model name (substring)',
   'storageSettings.admission.seconds': 'Seconds',
-  'storageSettings.admission.addModel': '+ Add model'
+  'storageSettings.admission.addModel': '+ Add model',
+  'storageSettings.admission.moveUp': 'Move up (higher match priority)',
+  'storageSettings.admission.moveDown': 'Move down (lower match priority)'
 };

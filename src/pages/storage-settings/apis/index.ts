@@ -13,8 +13,12 @@ export interface StorageConfig {
   lightx2v_image_max_queue_wait_seconds?: number | null;
   lightx2v_video_max_queue_wait_seconds?: number | null;
   lightx2v_audio_max_queue_wait_seconds?: number | null;
+  lightx2v_music_max_queue_wait_seconds?: number | null;
+  lightx2v_audiogen_max_queue_wait_seconds?: number | null;
   // 按模型单实例热态延迟(秒),对象形态或 JSON 字符串。
   lightx2v_model_latency_seconds?: Record<string, number> | string | null;
+  // 按模型排队等待上限(秒),覆盖上面的按类阈值;同样是对象或 JSON 字符串。
+  lightx2v_model_queue_wait_seconds?: Record<string, number> | string | null;
   [key: string]: any;
 }
 
