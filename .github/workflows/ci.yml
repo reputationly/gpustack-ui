@@ -127,8 +127,18 @@ jobs:
     needs: build-publish
     if: (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')) || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-22.04
+    env:
+      # Upstream dispatches ui-built to gpustack/gpustack to kick off its pack
+      # workflow. This fork ships through pack-acr-overlay.yml (manual dispatch,
+      # ui_ref input) and its pack.yaml deliberately keeps no repository_dispatch
+      # trigger, so there is nothing to kick off and no DISPATCH_PAT to do it
+      # with — without this guard every push to main fails the job with
+      # "Parameter token or opts.auth is required". Same pattern as COS_ENABLED
+      # above.
+      DISPATCH_ENABLED: ${{ secrets.DISPATCH_PAT != '' }}
     steps:
       - name: Dispatch backend build
+        if: ${{ env.DISPATCH_ENABLED == 'true' }}
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.DISPATCH_PAT }}
