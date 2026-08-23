@@ -183,11 +183,15 @@ const APIKeys: React.FC = () => {
     if (type !== 'Table') return;
     return (
       <NoResult
+        minHeight="calc(100vh - 300px)"
         loading={dataSource.loading}
         loadend={dataSource.loadend}
         dataSource={dataSource.dataList}
         image={<IconFont type="icon-key" />}
-        filters={_.omit(queryParams, ['sort_by'])}
+        filters={{
+          ..._.omit(queryParams, ['sort_by']),
+          user_id: queryParams.user_id === '*' ? undefined : queryParams.user_id
+        }}
         noFoundText={intl.formatMessage({
           id: 'noresult.keys.nofound'
         })}
@@ -228,6 +232,7 @@ const APIKeys: React.FC = () => {
         ></FilterBar>
         <ConfigProvider renderEmpty={renderEmpty}>
           <Table
+            className={'scroll-table'}
             columns={columns}
             dataSource={dataSource.dataList}
             rowSelection={rowSelection}

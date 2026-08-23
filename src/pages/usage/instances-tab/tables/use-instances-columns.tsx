@@ -2,10 +2,12 @@ import {
   buildInstanceTypeRecordFromMiB,
   renderInstanceType
 } from '@/pages/gpu-service/instances/utils/render-instance-type';
+import { AutoTooltip } from '@gpustack/core-ui';
 import { useIntl } from '@umijs/max';
 import { useMemo } from 'react';
 import { ResourceBreakdownItem } from '../../apis/resource';
-import { instanceTypeLabel } from '../../utils/format-instance-type';
+import DeletedTag from '../../components/deleted-tag';
+import { instanceTypeSeriesLabel } from '../../utils/format-instance-type';
 import { parseRollup } from '../../utils/time-buckets';
 
 type GroupKey = 'gpu_type' | 'instance' | 'user';
@@ -44,25 +46,29 @@ const useInstancesColumns = (groupKey: GroupKey) => {
       title: intl.formatMessage({ id: 'usage.table.instanceType' }),
       dataIndex: 'gpu_type',
       key: 'gpu_type',
-      render: (_v: string, row: ResourceBreakdownItem) =>
-        renderInstanceType(
+      render: (_v: string, row: ResourceBreakdownItem) => {
+        const isCpu = !row.gpu_count && !row.vram_mib;
+        return renderInstanceType(
           buildInstanceTypeRecordFromMiB({
             name: row.instance_name,
             product: row.product || row.gpu_type,
             gpuCount: row.gpu_count,
-            unitCpuMilli: row.unit_cpu_milli,
-            unitMemoryMib: row.unit_memory_mib,
+            // CPU instance types show their real total size (cpu/mem totals);
+            // GPU keeps per-card specs since the renderer multiplies by the
+            // card count.
+            unitCpuMilli: isCpu ? row.cpu_milli : row.unit_cpu_milli,
+            unitMemoryMib: isCpu ? row.memory_mib : row.unit_memory_mib,
             vramMib: row.vram_mib
           }),
           {
             intl,
             categories: ['cpu', 'ram'],
-            title:
-              !!row.gpu_count || !!row.vram_mib
-                ? instanceTypeLabel(row)
-                : 'CPU Only'
+            // Each row is one shape: GPU "<product> x <cards>", CPU
+            // "CPU Only · <spec>".
+            title: instanceTypeSeriesLabel(row)
           }
-        )
+        );
+      }
     };
     // Instances breakdown: render through the canonical GPU Instances list
     // renderer so the label + spec popover are identical. The breakdown row
@@ -71,21 +77,29 @@ const useInstancesColumns = (groupKey: GroupKey) => {
       title: intl.formatMessage({ id: 'usage.table.instanceType' }),
       dataIndex: 'gpu_type',
       key: 'gpu_type',
-      render: (_v: string, row: ResourceBreakdownItem) =>
-        renderInstanceType(
+      render: (_v: string, row: ResourceBreakdownItem) => {
+        const isCpu = !row.gpu_count && !row.vram_mib;
+        return renderInstanceType(
           buildInstanceTypeRecordFromMiB({
             name: row.instance_name,
             product: row.product || row.gpu_type,
             gpuCount: row.gpu_count,
-            unitCpuMilli: row.unit_cpu_milli,
-            unitMemoryMib: row.unit_memory_mib,
+            // A per-instance row is one concrete instance, so CPU shows its
+            // real requested size (cpu/mem totals), not the per-unit flavor
+            // spec — e.g. a 3c6g instance of a 1c2g flavor reads "3 vCPU · 6 GB".
+            unitCpuMilli: isCpu ? row.cpu_milli : row.unit_cpu_milli,
+            unitMemoryMib: isCpu ? row.memory_mib : row.unit_memory_mib,
             vramMib: row.vram_mib,
             localStorageMib: row.local_storage_mib,
             ephemeralMib: row.ephemeral_mib,
             persistentMib: row.persistent_mib
           }),
-          { intl }
-        )
+          // Label by shape directly (consistent with the Instance Types
+          // column); avoids renderInstanceType's "CPU Only" fallback when a
+          // GPU row has vram but a missing/zero gpu_count.
+          { intl, title: instanceTypeSeriesLabel(row) }
+        );
+      }
     };
     // Last Active = the last active day. The backend sends a rollup-tz instant
     // with its offset; parseRollup keeps that wall clock (no browser-tz convert),
@@ -96,6 +110,22 @@ const useInstancesColumns = (groupKey: GroupKey) => {
       key: 'last_active',
       render: (v?: string) => (v ? parseRollup(v).format('YYYY-MM-DD') : '-')
     };
+    // Name cell with a DeletedTag when the entity no longer exists — mirrors the
+    // Tokens tab. The id keeps two deleted rows sharing a stale name distinct.
+    const renderName = (text: string, id?: number, deleted?: boolean) => (
+      <span className="flex items-center gap-8">
+        <AutoTooltip
+          ghost
+          style={{
+            maxWidth: 400,
+            ...(deleted ? { color: 'var(--ant-color-text-tertiary)' } : null)
+          }}
+        >
+          {text || '-'}
+        </AutoTooltip>
+        {deleted && <DeletedTag id={id ?? null} />}
+      </span>
+    );
     if (groupKey === 'gpu_type') {
       return [
         instanceTypeColType,
@@ -111,9 +141,11 @@ const useInstancesColumns = (groupKey: GroupKey) => {
     if (groupKey === 'instance') {
       return [
         {
-          title: intl.formatMessage({ id: 'usage.table.instance' }),
+          title: intl.formatMessage({ id: 'common.table.name' }),
           dataIndex: 'instance_name',
-          key: 'instance_name'
+          key: 'instance_name',
+          render: (text: string, row: ResourceBreakdownItem) =>
+            renderName(text, row.instance_id, row.deleted)
         },
         instanceTypeColInstance,
         ...baseValueCols,
@@ -123,9 +155,11 @@ const useInstancesColumns = (groupKey: GroupKey) => {
     // user tab
     return [
       {
-        title: intl.formatMessage({ id: 'usage.table.user' }),
+        title: intl.formatMessage({ id: 'common.table.name' }),
         dataIndex: 'user_name',
-        key: 'user_name'
+        key: 'user_name',
+        render: (text: string, row: ResourceBreakdownItem) =>
+          renderName(text, row.user_id, row.deleted)
       },
       ...baseValueCols,
       lastActiveCol

@@ -10,6 +10,7 @@
  * Talks to the new ``/usage/gpu-instances/{meta,breakdown}`` endpoints.
  */
 import useCoolColors from '@/hooks/use-cool-colors';
+import { getGPUStackPlugin } from '@/plugins';
 import { formatLargeNumber } from '@/utils';
 import { SimpleCard } from '@gpustack/core-ui';
 import { useAccess, useIntl } from '@umijs/max';
@@ -24,10 +25,10 @@ import MetricChartCard from '../components/metric-chart-card';
 import MetricLabel from '../components/metric-label';
 import ResourceExportData from '../components/resource-export-data';
 import ResourceFilterBar from '../components/resource-filter-bar';
-import { FULL_FETCH_PAGE } from '../config';
 import useResourceMeta from '../hooks/use-resource-meta';
 import {
   exportBreakdownSheets,
+  markDeletedNames,
   toExportColumns
 } from '../utils/export-breakdown';
 import {
@@ -43,6 +44,31 @@ import useInstancesColumns from './tables/use-instances-columns';
 type Scope = 'self' | 'all';
 type Metric = 'gpu_hours' | 'instance_hours';
 type GroupKey = 'gpu_type' | 'instance' | 'user';
+
+// Enterprise-provided extra bottom sub-tab (e.g. the Organization breakdown).
+// Registered on the enterprise plugin under ``usage.resourceBreakdownExtraTabs``;
+// empty when no plugin is loaded, so the OSS build renders nothing extra.
+interface ResourceBreakdownExtraTab {
+  key: string;
+  labelId: string;
+  // Plain function (not a hook) — called during render to gate the tab; the
+  // plugin reads any runtime state non-reactively (Rules of Hooks).
+  isVisible?: (ctx: { scope: Scope }) => boolean;
+  Component: React.ComponentType<{
+    tab: 'gpu-instances' | 'storage';
+    dateRange: [dayjs.Dayjs, dayjs.Dayjs];
+    scope: Scope;
+    filters: {
+      creator_ids?: number[];
+      instance_ids?: number[];
+      volume_ids?: number[];
+      organization_ids?: number[];
+      user_group_ids?: number[];
+    };
+    pageResetKey?: number;
+    refreshKey?: number;
+  }>;
+}
 
 const GpuInstancesTab: React.FC = () => {
   const access = useAccess();
@@ -65,12 +91,12 @@ const GpuInstancesTab: React.FC = () => {
   const TABLE_TABS: { key: GroupKey; label: string }[] = useMemo(() => {
     const tabs = [
       {
-        key: 'gpu_type' as GroupKey,
-        label: intl.formatMessage({ id: 'usage.table.instanceTypes' })
-      },
-      {
         key: 'instance' as GroupKey,
         label: intl.formatMessage({ id: 'usage.table.instances' })
+      },
+      {
+        key: 'gpu_type' as GroupKey,
+        label: intl.formatMessage({ id: 'usage.table.instanceTypes' })
       }
     ];
     // Managers see the org-wide User breakdown; members only their own rows.
@@ -99,6 +125,11 @@ const GpuInstancesTab: React.FC = () => {
   ]);
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [selectedInstances, setSelectedInstances] = useState<number[]>([]);
+  // Platform-wide "All" view only (enterprise-gated); empty otherwise.
+  const [selectedOrganizations, setSelectedOrganizations] = useState<number[]>(
+    []
+  );
+  const [selectedUserGroups, setSelectedUserGroups] = useState<number[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [metric, setMetric] = useState<Metric>('gpu_hours');
   const [granularity, setGranularity] = useState<Granularity>('day');
@@ -106,10 +137,21 @@ const GpuInstancesTab: React.FC = () => {
   const [chartGroupBy, setChartGroupBy] = useState<GroupKey | null>(null);
   // ``null`` group_by = no row grouping, just the summary KPIs.
   // The chart needs the ``date`` group; tables use the active table tab.
-  const [activeTableTab, setActiveTableTab] = useState<GroupKey>('gpu_type');
+  // Widened to ``string``: enterprise extra tabs use arbitrary keys.
+  const [activeTableTab, setActiveTableTab] = useState<string>('instance');
 
-  const { creators: userOptions, instances: instanceOptions } =
-    useResourceMeta(scope);
+  const {
+    creators: userOptions,
+    instances: instanceOptions,
+    organizations,
+    user_groups: userGroups
+  } = useResourceMeta(scope);
+
+  // Enterprise-provided extra bottom sub-tabs (empty in the OSS build).
+  // Visibility is a plain ``isVisible(ctx)`` function, evaluated at render —
+  // no hooks in a loop.
+  const extraBreakdownTabs: ResourceBreakdownExtraTab[] =
+    getGPUStackPlugin()?.usage?.resourceBreakdownExtraTabs ?? [];
 
   // The daily chart fetches group_by=date here; each bottom table owns its own
   // fetch (group_by=tab key) inside InstancesBreakdownTable. Bumped on any
@@ -122,20 +164,37 @@ const GpuInstancesTab: React.FC = () => {
     fetchData: fetchChartData
   } = useQueryGpuInstancesBreakdown({ key: 'gpuInstancesBreakdownChart' });
 
+  // Single source of truth for the active filter set — memoized so its
+  // reference only changes when a selection changes (an inline object would
+  // refire the extra tab's fetch effect on every render), and shared by both
+  // the chart request and the enterprise extra tab (no duplicated spread).
+  const breakdownFilters = useMemo(
+    () => ({
+      ...(selectedUsers.length ? { creator_ids: selectedUsers } : {}),
+      ...(selectedInstances.length ? { instance_ids: selectedInstances } : {}),
+      ...(selectedOrganizations.length
+        ? { organization_ids: selectedOrganizations }
+        : {}),
+      ...(selectedUserGroups.length
+        ? { user_group_ids: selectedUserGroups }
+        : {})
+    }),
+    [
+      selectedUsers,
+      selectedInstances,
+      selectedOrganizations,
+      selectedUserGroups
+    ]
+  );
+
   const baseRequest = (): Omit<ResourceBreakdownRequest, 'group_by'> => ({
     start_date: dateRange[0].format('YYYY-MM-DD'),
     end_date: dateRange[1].format('YYYY-MM-DD'),
     scope,
     granularity,
-    filters:
-      selectedUsers.length || selectedInstances.length
-        ? {
-            ...(selectedUsers.length ? { creator_ids: selectedUsers } : {}),
-            ...(selectedInstances.length
-              ? { instance_ids: selectedInstances }
-              : {})
-          }
-        : undefined,
+    filters: Object.keys(breakdownFilters).length
+      ? breakdownFilters
+      : undefined,
     page: 1,
     perPage: 50
   });
@@ -149,7 +208,8 @@ const GpuInstancesTab: React.FC = () => {
       // whole range. The default order is metric-desc, so partial (current/
       // recent) buckets have smaller values and would be pushed onto later
       // pages — dropping the newest hours from the chart under a small page.
-      ...FULL_FETCH_PAGE
+      // ``page: -1`` is the backend's no-pagination sentinel.
+      page: -1
     });
 
   useEffect(() => {
@@ -158,6 +218,8 @@ const GpuInstancesTab: React.FC = () => {
     dateRange,
     selectedUsers,
     selectedInstances,
+    selectedOrganizations,
+    selectedUserGroups,
     granularity,
     chartGroupBy,
     refreshKey
@@ -297,13 +359,18 @@ const GpuInstancesTab: React.FC = () => {
           ...baseRequest(),
           group_by: [g.key],
           // A breakdown export is the full filtered set, not a page.
-          ...FULL_FETCH_PAGE
+          // ``page: -1`` is the backend's no-pagination sentinel.
+          page: -1
         })
       )
     );
+    const deletedWord = intl.formatMessage({ id: 'usage.table.deleted' });
     exportBreakdownSheets(
       tableExportGroups.map((g, i) => ({
-        rows: results[i]?.items ?? [],
+        // The Instance Types sheet's name (``gpu_type``) is already marked by
+        // the adapter; the instance / user sheets keep the clean name (the
+        // table renders a tag) so mark it here for the export only.
+        rows: markDeletedNames(results[i]?.items ?? [], g.key, deletedWord),
         columns: toExportColumns(g.columns),
         sheetName: g.sheetName
       })),
@@ -317,6 +384,21 @@ const GpuInstancesTab: React.FC = () => {
       dataIndex: 'date',
       key: 'date'
     },
+    {
+      title: intl.formatMessage({ id: 'usage.table.instance' }),
+      dataIndex: 'instance_name',
+      key: 'instance_name'
+    },
+    // Owner User column — org admins only (members see just their own rows).
+    ...(canManageUsers
+      ? [
+          {
+            title: intl.formatMessage({ id: 'usage.table.users' }),
+            dataIndex: 'user_name',
+            key: 'user_name'
+          }
+        ]
+      : []),
     {
       title: intl.formatMessage({ id: 'usage.metric.gpuHours' }),
       dataIndex: 'gpu_hours',
@@ -343,7 +425,7 @@ const GpuInstancesTab: React.FC = () => {
 
   // The preview modal now only backs the by-date chart export.
   const exportConfig = {
-    groupBy: ['date'],
+    groupBy: ['date', 'instance'],
     columns: chartExportColumns,
     fileName: `gpu-instances_chart_${dateSuffix}.xlsx`,
     sheetName: intl.formatMessage({ id: 'usage.tabs.gpuInstances' })
@@ -373,6 +455,18 @@ const GpuInstancesTab: React.FC = () => {
             setPageResetKey((k) => k + 1);
           },
           placeholder: intl.formatMessage({ id: 'usage.filter.instance' })
+        }}
+        organizationOptions={organizations}
+        userGroupOptions={userGroups}
+        selectedOrganizations={selectedOrganizations}
+        selectedUserGroups={selectedUserGroups}
+        onOrganizationsChange={(ids) => {
+          setSelectedOrganizations(ids);
+          setPageResetKey((k) => k + 1);
+        }}
+        onUserGroupsChange={(ids) => {
+          setSelectedUserGroups(ids);
+          setPageResetKey((k) => k + 1);
         }}
         onRefresh={() => setRefreshKey((k) => k + 1)}
         onExportChart={() => setExportMode('chart')}
@@ -414,26 +508,49 @@ const GpuInstancesTab: React.FC = () => {
       {/* Bottom tabs + table */}
       <Tabs
         activeKey={activeTableTab}
-        onChange={(k) => setActiveTableTab(k as GroupKey)}
-        items={TABLE_TABS.map((t) => ({
-          key: t.key,
-          label: t.label,
-          // Keep every pane mounted so each table holds its own page/sort and
-          // switching tabs neither refetches nor resets the others.
-          forceRender: true,
-          children: (
-            <InstancesBreakdownTable
-              key={t.key}
-              groupKey={t.key}
-              dateRange={dateRange}
-              scope={scope}
-              selectedUsers={selectedUsers}
-              selectedInstances={selectedInstances}
-              pageResetKey={pageResetKey}
-              refreshKey={refreshKey}
-            />
-          )
-        }))}
+        onChange={(k) => setActiveTableTab(k)}
+        items={[
+          ...TABLE_TABS.map((t) => ({
+            key: t.key,
+            label: t.label,
+            // Keep every pane mounted so each table holds its own page/sort and
+            // switching tabs neither refetches nor resets the others.
+            forceRender: true,
+            children: (
+              <InstancesBreakdownTable
+                key={t.key}
+                groupKey={t.key}
+                dateRange={dateRange}
+                scope={scope}
+                selectedUsers={selectedUsers}
+                selectedInstances={selectedInstances}
+                selectedOrganizations={selectedOrganizations}
+                selectedUserGroups={selectedUserGroups}
+                pageResetKey={pageResetKey}
+                refreshKey={refreshKey}
+              />
+            )
+          })),
+          // Enterprise Organization breakdown sub-tab(s) — appended after the
+          // built-in tabs; nothing here in the OSS build.
+          ...extraBreakdownTabs
+            .filter((t) => (t.isVisible ? t.isVisible({ scope }) : true))
+            .map((t) => ({
+              key: t.key,
+              label: intl.formatMessage({ id: t.labelId }),
+              forceRender: true,
+              children: (
+                <t.Component
+                  tab="gpu-instances"
+                  dateRange={dateRange}
+                  scope={scope}
+                  filters={breakdownFilters}
+                  pageResetKey={pageResetKey}
+                  refreshKey={refreshKey}
+                />
+              )
+            }))
+        ]}
       />
 
       <ResourceExportData
@@ -456,6 +573,24 @@ const GpuInstancesTab: React.FC = () => {
         initialDateRange={dateRange}
         initialSelectedUsers={selectedUsers}
         initialSelectedResources={selectedInstances}
+        organizationOptions={organizations}
+        userGroupOptions={userGroups}
+        initialSelectedOrganizations={selectedOrganizations}
+        initialSelectedUserGroups={selectedUserGroups}
+        deletedNameFields={[
+          // The row's ``deleted`` is the grouped instance; the owner user
+          // carries its own ``user_deleted``.
+          { name: 'instance_name', id: 'instance_id', deletedFlag: 'deleted' },
+          ...(canManageUsers
+            ? [
+                {
+                  name: 'user_name',
+                  id: 'user_id',
+                  deletedFlag: 'user_deleted'
+                }
+              ]
+            : [])
+        ]}
       />
     </div>
   );

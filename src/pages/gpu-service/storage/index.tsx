@@ -109,6 +109,7 @@ const GPUServiceStorage: React.FC = () => {
     if (type !== 'Table') return;
     return (
       <NoResult
+        minHeight="calc(100vh - 300px)"
         loading={dataSource.loading}
         loadend={dataSource.loadend}
         dataSource={dataSource.dataList}
@@ -150,6 +151,7 @@ const GPUServiceStorage: React.FC = () => {
         />
         <ConfigProvider renderEmpty={renderEmpty}>
           <Table
+            className={'scroll-table'}
             columns={columns}
             dataSource={dataSource.dataList}
             rowSelection={rowSelection}
@@ -177,7 +179,6 @@ const GPUServiceStorage: React.FC = () => {
         action={openStorageModalStatus.action}
         title={openStorageModalStatus.title}
         data={openStorageModalStatus.currentData}
-        storageClassList={storageClassList}
         onCancel={closeStorageModal}
         onOk={handleModalOk}
       />

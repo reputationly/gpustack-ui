@@ -12,6 +12,7 @@
  * so there's no phase filter — just date / scope / volume / user.
  */
 import useCoolColors from '@/hooks/use-cool-colors';
+import { getGPUStackPlugin } from '@/plugins';
 import { formatLargeNumber } from '@/utils';
 import { SimpleCard } from '@gpustack/core-ui';
 import { useAccess, useIntl } from '@umijs/max';
@@ -27,10 +28,10 @@ import MetricChartCard from '../components/metric-chart-card';
 import MetricLabel from '../components/metric-label';
 import ResourceExportData from '../components/resource-export-data';
 import ResourceFilterBar from '../components/resource-filter-bar';
-import { FULL_FETCH_PAGE } from '../config';
 import useResourceMeta from '../hooks/use-resource-meta';
 import {
   exportBreakdownSheets,
+  markDeletedNames,
   toExportColumns
 } from '../utils/export-breakdown';
 import {
@@ -46,6 +47,31 @@ import useStorageColumns from './tables/use-storage-columns';
 type Scope = 'self' | 'all';
 type Metric = 'storage_gb_days' | 'storage_gb_hours';
 type GroupKey = 'volume' | 'user';
+
+// Enterprise-provided extra bottom sub-tab (e.g. the Organization breakdown).
+// Registered on the enterprise plugin under ``usage.resourceBreakdownExtraTabs``;
+// empty when no plugin is loaded, so the OSS build renders nothing extra.
+interface ResourceBreakdownExtraTab {
+  key: string;
+  labelId: string;
+  // Plain function (not a hook) — called during render to gate the tab; the
+  // plugin reads any runtime state non-reactively (Rules of Hooks).
+  isVisible?: (ctx: { scope: Scope }) => boolean;
+  Component: React.ComponentType<{
+    tab: 'gpu-instances' | 'storage';
+    dateRange: [dayjs.Dayjs, dayjs.Dayjs];
+    scope: Scope;
+    filters: {
+      creator_ids?: number[];
+      instance_ids?: number[];
+      volume_ids?: number[];
+      organization_ids?: number[];
+      user_group_ids?: number[];
+    };
+    pageResetKey?: number;
+    refreshKey?: number;
+  }>;
+}
 
 const StorageTab: React.FC = () => {
   const access = useAccess();
@@ -96,15 +122,31 @@ const StorageTab: React.FC = () => {
   ]);
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [selectedVolumes, setSelectedVolumes] = useState<number[]>([]);
+  // Platform-wide "All" view only (enterprise-gated); empty otherwise.
+  const [selectedOrganizations, setSelectedOrganizations] = useState<number[]>(
+    []
+  );
+  const [selectedUserGroups, setSelectedUserGroups] = useState<number[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [metric, setMetric] = useState<Metric>('storage_gb_days');
   const [granularity, setGranularity] = useState<Granularity>('day');
   // Optional trend group-by (split the chart into one series per group).
   const [chartGroupBy, setChartGroupBy] = useState<GroupKey | null>(null);
-  const [activeTableTab, setActiveTableTab] = useState<GroupKey>('volume');
+  // Widened to ``string``: enterprise extra tabs use arbitrary keys.
+  const [activeTableTab, setActiveTableTab] = useState<string>('volume');
 
-  const { creators: userOptions, volumes: volumeOptions } =
-    useResourceMeta(scope);
+  const {
+    creators: userOptions,
+    volumes: volumeOptions,
+    organizations,
+    user_groups: userGroups
+  } = useResourceMeta(scope);
+
+  // Enterprise-provided extra bottom sub-tabs (empty in the OSS build).
+  // Visibility is a plain ``isVisible(ctx)`` function, evaluated at render —
+  // no hooks in a loop.
+  const extraBreakdownTabs: ResourceBreakdownExtraTab[] =
+    getGPUStackPlugin()?.usage?.resourceBreakdownExtraTabs ?? [];
 
   // Bumped on any filter change to snap every mounted table back to page 1;
   // each table owns its own page/sort state otherwise.
@@ -116,18 +158,32 @@ const StorageTab: React.FC = () => {
     fetchData: fetchChartData
   } = useQueryStorageBreakdown({ key: 'storageBreakdownChart' });
 
+  // Single source of truth for the active filter set — memoized so its
+  // reference only changes when a selection changes (an inline object would
+  // refire the extra tab's fetch effect on every render), and shared by both
+  // the chart request and the enterprise extra tab (no duplicated spread).
+  const breakdownFilters = useMemo(
+    () => ({
+      ...(selectedUsers.length ? { creator_ids: selectedUsers } : {}),
+      ...(selectedVolumes.length ? { volume_ids: selectedVolumes } : {}),
+      ...(selectedOrganizations.length
+        ? { organization_ids: selectedOrganizations }
+        : {}),
+      ...(selectedUserGroups.length
+        ? { user_group_ids: selectedUserGroups }
+        : {})
+    }),
+    [selectedUsers, selectedVolumes, selectedOrganizations, selectedUserGroups]
+  );
+
   const baseRequest = (): Omit<ResourceBreakdownRequest, 'group_by'> => ({
     start_date: dateRange[0].format('YYYY-MM-DD'),
     end_date: dateRange[1].format('YYYY-MM-DD'),
     scope,
     granularity,
-    filters:
-      selectedUsers.length || selectedVolumes.length
-        ? {
-            ...(selectedUsers.length ? { creator_ids: selectedUsers } : {}),
-            ...(selectedVolumes.length ? { volume_ids: selectedVolumes } : {})
-          }
-        : undefined,
+    filters: Object.keys(breakdownFilters).length
+      ? breakdownFilters
+      : undefined,
     page: 1,
     perPage: 50
   });
@@ -141,7 +197,8 @@ const StorageTab: React.FC = () => {
       // whole range. The default order is metric-desc, so partial (current/
       // recent) buckets have smaller values and would be pushed onto later
       // pages — dropping the newest hours from the chart under a small page.
-      ...FULL_FETCH_PAGE
+      // ``page: -1`` is the backend's no-pagination sentinel.
+      page: -1
     })
   );
 
@@ -151,6 +208,8 @@ const StorageTab: React.FC = () => {
     dateRange,
     selectedUsers,
     selectedVolumes,
+    selectedOrganizations,
+    selectedUserGroups,
     granularity,
     chartGroupBy,
     refreshKey
@@ -284,13 +343,15 @@ const StorageTab: React.FC = () => {
           ...baseRequest(),
           group_by: [g.key],
           // A breakdown export is the full filtered set, not a page.
-          ...FULL_FETCH_PAGE
+          // ``page: -1`` is the backend's no-pagination sentinel.
+          page: -1
         })
       )
     );
+    const deletedWord = intl.formatMessage({ id: 'usage.table.deleted' });
     exportBreakdownSheets(
       tableExportGroups.map((g, i) => ({
-        rows: results[i]?.items ?? [],
+        rows: markDeletedNames(results[i]?.items ?? [], g.key, deletedWord),
         columns: toExportColumns(g.columns),
         sheetName: g.sheetName
       })),
@@ -304,6 +365,21 @@ const StorageTab: React.FC = () => {
       dataIndex: 'date',
       key: 'date'
     },
+    {
+      title: intl.formatMessage({ id: 'usage.tabs.storage' }),
+      dataIndex: 'volume_name',
+      key: 'volume_name'
+    },
+    // Owner User column — org admins only (members see just their own rows).
+    ...(canManageUsers
+      ? [
+          {
+            title: intl.formatMessage({ id: 'usage.table.users' }),
+            dataIndex: 'user_name',
+            key: 'user_name'
+          }
+        ]
+      : []),
     {
       title: intl.formatMessage({ id: 'usage.metric.gbDays' }),
       dataIndex: 'storage_gb_days',
@@ -330,7 +406,7 @@ const StorageTab: React.FC = () => {
 
   // The preview modal now only backs the by-date chart export.
   const exportConfig = {
-    groupBy: ['date'],
+    groupBy: ['date', 'volume'],
     columns: chartExportColumns,
     fileName: `storage_chart_${dateSuffix}.xlsx`,
     sheetName: intl.formatMessage({ id: 'usage.tabs.storage' })
@@ -359,6 +435,18 @@ const StorageTab: React.FC = () => {
             setPageResetKey((k) => k + 1);
           },
           placeholder: intl.formatMessage({ id: 'usage.filter.storage' })
+        }}
+        organizationOptions={organizations}
+        userGroupOptions={userGroups}
+        selectedOrganizations={selectedOrganizations}
+        selectedUserGroups={selectedUserGroups}
+        onOrganizationsChange={(ids) => {
+          setSelectedOrganizations(ids);
+          setPageResetKey((k) => k + 1);
+        }}
+        onUserGroupsChange={(ids) => {
+          setSelectedUserGroups(ids);
+          setPageResetKey((k) => k + 1);
         }}
         onRefresh={() => setRefreshKey((k) => k + 1)}
         onExportChart={() => setExportMode('chart')}
@@ -397,26 +485,49 @@ const StorageTab: React.FC = () => {
 
       <Tabs
         activeKey={activeTableTab}
-        onChange={(k) => setActiveTableTab(k as GroupKey)}
-        items={TABLE_TABS.map((t) => ({
-          key: t.key,
-          label: t.label,
-          // Keep every pane mounted so each table holds its own page/sort and
-          // switching tabs neither refetches nor resets the other.
-          forceRender: true,
-          children: (
-            <StorageBreakdownTable
-              key={t.key}
-              groupKey={t.key}
-              dateRange={dateRange}
-              scope={scope}
-              selectedUsers={selectedUsers}
-              selectedVolumes={selectedVolumes}
-              pageResetKey={pageResetKey}
-              refreshKey={refreshKey}
-            />
-          )
-        }))}
+        onChange={(k) => setActiveTableTab(k)}
+        items={[
+          ...TABLE_TABS.map((t) => ({
+            key: t.key,
+            label: t.label,
+            // Keep every pane mounted so each table holds its own page/sort and
+            // switching tabs neither refetches nor resets the other.
+            forceRender: true,
+            children: (
+              <StorageBreakdownTable
+                key={t.key}
+                groupKey={t.key}
+                dateRange={dateRange}
+                scope={scope}
+                selectedUsers={selectedUsers}
+                selectedVolumes={selectedVolumes}
+                selectedOrganizations={selectedOrganizations}
+                selectedUserGroups={selectedUserGroups}
+                pageResetKey={pageResetKey}
+                refreshKey={refreshKey}
+              />
+            )
+          })),
+          // Enterprise Organization breakdown sub-tab(s) — appended after the
+          // built-in tabs; nothing here in the OSS build.
+          ...extraBreakdownTabs
+            .filter((t) => (t.isVisible ? t.isVisible({ scope }) : true))
+            .map((t) => ({
+              key: t.key,
+              label: intl.formatMessage({ id: t.labelId }),
+              forceRender: true,
+              children: (
+                <t.Component
+                  tab="storage"
+                  dateRange={dateRange}
+                  scope={scope}
+                  filters={breakdownFilters}
+                  pageResetKey={pageResetKey}
+                  refreshKey={refreshKey}
+                />
+              )
+            }))
+        ]}
       />
 
       <ResourceExportData
@@ -439,6 +550,24 @@ const StorageTab: React.FC = () => {
         initialDateRange={dateRange}
         initialSelectedUsers={selectedUsers}
         initialSelectedResources={selectedVolumes}
+        organizationOptions={organizations}
+        userGroupOptions={userGroups}
+        initialSelectedOrganizations={selectedOrganizations}
+        initialSelectedUserGroups={selectedUserGroups}
+        deletedNameFields={[
+          // The row's ``deleted`` is the grouped volume; the owner user
+          // carries its own ``user_deleted``.
+          { name: 'volume_name', id: 'volume_id', deletedFlag: 'deleted' },
+          ...(canManageUsers
+            ? [
+                {
+                  name: 'user_name',
+                  id: 'user_id',
+                  deletedFlag: 'user_deleted'
+                }
+              ]
+            : [])
+        ]}
       />
     </div>
   );

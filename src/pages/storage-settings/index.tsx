@@ -288,7 +288,7 @@ const StorageSettings: React.FC = () => {
             <InputNumber min={0} max={1} step={0.05} style={{ width: 200 }} />
           </Form.Item>
 
-          <Divider orientation="left">
+          <Divider titlePlacement="start">
             {intl.formatMessage({ id: 'storageSettings.admission.section' })}
           </Divider>
 

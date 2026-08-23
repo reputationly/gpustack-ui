@@ -10,7 +10,9 @@
  * (cpu/memory/ephemeral hours, dangling volumes) are left at 0 — the
  * whole-machine SKU model meters runtime, not decomposed components.
  */
-import { request } from '@umijs/max';
+import { getIntl, request } from '@umijs/max';
+import { withDeletedMark } from '../utils/deleted-label';
+import { instanceTypeSeriesLabel } from '../utils/format-instance-type';
 
 export interface ResourceUsageFilters {
   creator_ids?: number[];
@@ -18,6 +20,10 @@ export interface ResourceUsageFilters {
   instance_ids?: number[];
   gpu_types?: string[];
   volume_ids?: number[];
+  // Platform-wide "All" view only (backend-gated): consumer-Org ids and
+  // user-group ids (expanded server-side to the groups' direct members).
+  organization_ids?: number[];
+  user_group_ids?: number[];
 }
 
 export interface ResourceBreakdownRequest {
@@ -63,6 +69,19 @@ export interface ResourceBreakdownItem extends ResourceBreakdownSummary {
   volume_name?: string;
   user_id?: number;
   user_name?: string;
+  // Organization grouping (platform-wide "All" view). ``organization_name``
+  // is resolved live server-side; a gone Org sets ``deleted``.
+  organization_id?: number;
+  organization_name?: string;
+  // The grouped entity (instance / volume / user) no longer exists. The name
+  // fields keep the clean (stale) name; the tables show a DeletedTag off this
+  // flag plus the id, matching the Tokens tab.
+  deleted?: boolean;
+  // Owner user of a per-instance / per-volume row (compound date+dim grouping),
+  // with its own deletion state — independent of the row's ``deleted`` (which
+  // refers to the grouped instance/volume). Lets the export mark the User
+  // column separately, matching the Tokens tab.
+  user_deleted?: boolean;
   // Grouped-trend rows carry the sub-group label (sku / instance / user / …)
   // alongside ``date`` so the chart can pivot one series per group.
   group?: string;
@@ -73,6 +92,10 @@ export interface ResourceBreakdownItem extends ResourceBreakdownSummary {
   unit_cpu_milli?: number;
   unit_memory_mib?: number;
   vram_mib?: number;
+  // Instance totals (requested cpu/ram) — the real size, so CPU instance types
+  // show "CPU Only · 2 vCPU · 4 GB" instead of just the per-unit spec.
+  cpu_milli?: number;
+  memory_mib?: number;
   // Per-instance rows also carry the card count + ephemeral disk so the
   // Instances table can render "<product> x <count>" + the spec popover.
   gpu_count?: number;
@@ -192,16 +215,27 @@ interface ServerMetrics {
 // gpu_type / type both mean the sku (Type) on the server.
 
 interface ServerBreakdownItem {
+  date?: string | null;
+  // Grouped entity: ``key`` is its display name, ``id`` its id, ``deleted`` its
+  // own lifecycle state (instance / volume / user / sku, per group_by).
   key?: string | null;
   id?: number | null;
-  date?: string | null;
   sku?: string | null;
   deleted?: boolean | null;
+  // Owner (creator) of the instance/volume row (compound date+dim grouping),
+  // at the item root alongside the grouped entity, with its OWN deletion state
+  // — independent of ``deleted`` — so the export can show a User column that
+  // marks a deleted owner separately from a deleted instance/volume.
+  creator_id?: number | null;
+  creator_name?: string | null;
+  creator_deleted?: boolean | null;
   dimensions?: {
     product?: string | null;
     unit_cpu_milli?: number | null;
     unit_memory_mib?: number | null;
     vram_mib?: number | null;
+    cpu_milli?: number | null;
+    memory_mib?: number | null;
     gpu_count?: number | null;
     ephemeral_mib?: number | null;
     local_storage_mib?: number | null;
@@ -235,6 +269,7 @@ const GROUP_BY_MAP: Record<string, string> = {
   instance: 'instance',
   volume: 'volume',
   user: 'user',
+  organization: 'organization',
   date: 'date'
 };
 
@@ -270,12 +305,24 @@ function flattenItem(
   };
   if (it.date) flat.date = it.date;
   const id = it.id ?? undefined;
-  // Deleted entities get a "(Deleted)" suffix, matching the Token breakdown.
+  const deleted = !!it.deleted;
   const rawKey = it.key ?? undefined;
-  const key = it.deleted && rawKey != null ? `${rawKey} (Deleted)` : rawKey;
+  // The chart series legend can't render a tag, so it carries the deleted
+  // marker as text ("<name> [Deleted.<id>]"); the tables render a DeletedTag off
+  // ``flat.deleted`` + the id and so keep the clean name.
+  const key =
+    rawKey != null
+      ? withDeletedMark(
+          rawKey,
+          deleted,
+          deleted ? getIntl().formatMessage({ id: 'usage.table.deleted' }) : '',
+          id
+        )
+      : rawKey;
   // Generic group label — for a compound (date + dim) trend row the key is the
   // sub-group value (the switch below targets single-dimension table rows).
   if (rawKey != null) flat.group = key;
+  flat.deleted = deleted;
   switch (groupBy) {
     case 'resource_type':
       flat.resource_type = key;
@@ -285,16 +332,20 @@ function flattenItem(
       flat.gpu_type = key;
       break;
     case 'instance':
-      flat.instance_name = key;
+      flat.instance_name = rawKey;
       flat.instance_id = id;
       break;
     case 'volume':
-      flat.volume_name = key;
+      flat.volume_name = rawKey;
       flat.volume_id = id;
       break;
     case 'user':
-      flat.user_name = key;
+      flat.user_name = rawKey;
       flat.user_id = id;
+      break;
+    case 'organization':
+      flat.organization_name = rawKey;
+      flat.organization_id = id;
       break;
     default:
       break;
@@ -313,6 +364,8 @@ function flattenItem(
     if (dims.unit_memory_mib != null)
       flat.unit_memory_mib = dims.unit_memory_mib;
     if (dims.vram_mib != null) flat.vram_mib = dims.vram_mib;
+    if (dims.cpu_milli != null) flat.cpu_milli = dims.cpu_milli;
+    if (dims.memory_mib != null) flat.memory_mib = dims.memory_mib;
     if (dims.gpu_count != null) flat.gpu_count = dims.gpu_count;
     if (dims.ephemeral_mib != null) flat.ephemeral_mib = dims.ephemeral_mib;
     if (dims.local_storage_mib != null)
@@ -321,14 +374,20 @@ function flattenItem(
     if (dims.storage_type) flat.storage_type = dims.storage_type;
     if (dims.capacity_mib != null) flat.capacity_mib = dims.capacity_mib;
   }
-  // For an instance-type grouped trend the series label (``group``) defaults to
-  // the raw flavor slug; prefer the pretty product name so the chart legend
-  // matches the GPU Instances list (#5700). ``groupBy`` here is the unmapped
-  // frontend dimension — ``gpu_type`` maps to the backend's ``instance_type``
-  // (see GROUP_BY_MAP). Falls back to the slug for legacy rows that predate
-  // dimension enrichment.
-  if (groupBy === 'gpu_type' && flat.product) {
-    flat.group = flat.product;
+  // Owner (creator) of a per-instance / per-volume row — the grouped entity is
+  // the instance/volume (``key``/``deleted``), so the owner sits at the item
+  // root with its own deleted flag for the export's User column.
+  if (it.creator_name != null) flat.user_name = it.creator_name;
+  if (it.creator_id != null) flat.user_id = it.creator_id;
+  if (it.creator_deleted != null) flat.user_deleted = !!it.creator_deleted;
+  // Instance-type grouped trend: the series label (``group``) defaults to the
+  // raw flavor slug. Instance Types are grouped by actual shape, so label each
+  // series by that shape — "<product> x <cards>" / "CPU Only · 3 vCPU · 6 GB" —
+  // matching the table and keeping every shape a distinct series (#5700).
+  // ``groupBy`` is the unmapped frontend dimension; the instance-type axis is
+  // ``gpu_type`` (→ backend ``instance_type`` via GROUP_BY_MAP).
+  if (groupBy === 'gpu_type') {
+    flat.group = instanceTypeSeriesLabel(flat);
   }
   return flat;
 }
@@ -347,7 +406,13 @@ function flattenResponse(
 
 function toServerRequest(data: ResourceBreakdownRequest) {
   const groupByList = data.group_by?.length ? data.group_by : ['resource_type'];
-  const { creator_ids, instance_ids, volume_ids } = data.filters ?? {};
+  const {
+    creator_ids,
+    instance_ids,
+    volume_ids,
+    organization_ids,
+    user_group_ids
+  } = data.filters ?? {};
   // The non-date dimension drives response flattening into the right field.
   const dim = groupByList.find((g) => g !== 'date');
   return {
@@ -362,6 +427,8 @@ function toServerRequest(data: ResourceBreakdownRequest) {
       ...(creator_ids?.length ? { creator_ids } : {}),
       ...(instance_ids?.length ? { instance_ids } : {}),
       ...(volume_ids?.length ? { volume_ids } : {}),
+      ...(organization_ids?.length ? { organization_ids } : {}),
+      ...(user_group_ids?.length ? { user_group_ids } : {}),
       ...(data.order_by ? { order_by: data.order_by } : {}),
       ...(data.descending !== undefined ? { descending: data.descending } : {}),
       page: data.page ?? 1,
@@ -431,6 +498,8 @@ export async function queryResourceEvents(
   options?: { skipErrorHandler?: boolean; token?: any }
 ): Promise<ResourceEventsResponse> {
   const creatorIds = data.filters?.creator_ids;
+  const organizationIds = data.filters?.organization_ids;
+  const userGroupIds = data.filters?.user_group_ids;
   return request<ResourceEventsResponse>(URL.EVENTS, {
     params: {
       start_date: data.start_date,
@@ -440,6 +509,12 @@ export async function queryResourceEvents(
       // GET endpoints take list params as CSV strings (avoids axios array
       // serialization quirks); the server splits them back into lists.
       ...(creatorIds?.length ? { creator_ids: creatorIds.join(',') } : {}),
+      ...(organizationIds?.length
+        ? { organization_ids: organizationIds.join(',') }
+        : {}),
+      ...(userGroupIds?.length
+        ? { user_group_ids: userGroupIds.join(',') }
+        : {}),
       ...(data.event_types?.length
         ? { event_types: data.event_types.join(',') }
         : {}),
@@ -457,12 +532,18 @@ export interface ResourceFilterOption {
   id: number;
   label: string;
   deleted?: boolean;
+  // ``org`` / ``user`` / ``group`` — only set on organization options so the
+  // filter dropdown can tag a personal (USER) consumer.
+  kind?: string;
 }
 
 export interface ResourceFilterMeta {
   creators: ResourceFilterOption[];
   instances: ResourceFilterOption[];
   volumes: ResourceFilterOption[];
+  // Platform-wide "All" view only (backend returns them empty otherwise).
+  organizations: ResourceFilterOption[];
+  user_groups: ResourceFilterOption[];
 }
 
 export async function queryResourceFilterMeta(
@@ -475,7 +556,9 @@ export async function queryResourceFilterMeta(
   return {
     creators: res.creators || [],
     instances: res.instances || [],
-    volumes: res.volumes || []
+    volumes: res.volumes || [],
+    organizations: res.organizations || [],
+    user_groups: res.user_groups || []
   };
 }
 
@@ -485,10 +568,12 @@ export async function queryUsageSummary(
     end_date: string;
     scope?: 'self' | 'all';
     creator_ids?: number[];
+    organization_ids?: number[];
+    user_group_ids?: number[];
   },
   options?: { token?: any }
 ): Promise<UsageSummaryResponse> {
-  const { creator_ids, ...rest } = params;
+  const { creator_ids, organization_ids, user_group_ids, ...rest } = params;
   const res = await request<{
     total_tokens: number;
     input_tokens: number;
@@ -502,7 +587,13 @@ export async function queryUsageSummary(
     params: {
       ...rest,
       scope: params.scope ?? 'all',
-      ...(creator_ids?.length ? { creator_ids: creator_ids.join(',') } : {})
+      ...(creator_ids?.length ? { creator_ids: creator_ids.join(',') } : {}),
+      ...(organization_ids?.length
+        ? { organization_ids: organization_ids.join(',') }
+        : {}),
+      ...(user_group_ids?.length
+        ? { user_group_ids: user_group_ids.join(',') }
+        : {})
     },
     method: 'GET',
     cancelToken: options?.token
@@ -519,7 +610,17 @@ export async function queryUsageSummary(
         end_date: params.end_date,
         scope: params.scope ?? 'all',
         group_by: ['gpu_type'],
-        ...(creator_ids?.length ? { filters: { creator_ids } } : {}),
+        ...(creator_ids?.length ||
+        organization_ids?.length ||
+        user_group_ids?.length
+          ? {
+              filters: {
+                ...(creator_ids?.length ? { creator_ids } : {}),
+                ...(organization_ids?.length ? { organization_ids } : {}),
+                ...(user_group_ids?.length ? { user_group_ids } : {})
+              }
+            }
+          : {}),
         page: 1,
         perPage: 100
       },

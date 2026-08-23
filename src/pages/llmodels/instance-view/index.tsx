@@ -31,6 +31,16 @@ const filterOptions = {
       label: 'Error',
       value: 'error',
       color: 'var(--ant-color-error)'
+    },
+    {
+      label: 'Pending',
+      value: 'pending',
+      color: 'var(--ant-color-info)'
+    },
+    {
+      label: 'Starting',
+      value: 'starting',
+      color: 'var(--ant-color-info)'
     }
   ]
 };
@@ -99,6 +109,7 @@ const InstanceView = forwardRef((props, ref) => {
     if (type !== 'Table') return;
     return (
       <NoResult
+        minHeight="calc(100vh - 300px)"
         loading={dataSource.loading}
         loadend={dataSource.loadend}
         dataSource={dataSource.dataList}

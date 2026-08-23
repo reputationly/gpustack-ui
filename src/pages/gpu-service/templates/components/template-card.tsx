@@ -7,6 +7,7 @@ import metaxLogo from '@/assets/logo/metax.png';
 import mooreLogo from '@/assets/logo/moore-logo.png';
 import nvidiaLogo from '@/assets/logo/nvidia.png';
 import pytorchBlackLogo from '@/assets/logo/pytorch_black.png';
+import pytorchLightLogo from '@/assets/logo/pytorch_light.png';
 import sgLangLogo from '@/assets/logo/sglang.png';
 import theadLogoEN from '@/assets/logo/t-head-en.png';
 import theadLogoZH from '@/assets/logo/t-head-zh.png';
@@ -14,6 +15,7 @@ import tensorflowkLogo from '@/assets/logo/tensorflow.svg';
 import ubuntuLogo from '@/assets/logo/ubuntu_logo.png';
 import vllmLogo from '@/assets/logo/vllm.png';
 import PluginExtraFields from '@/components/plugin-extra-fields';
+import useUserSettings from '@/hooks/use-user-settings';
 import OwnerTag from '@/pages/gpu-service/components/owner-tag';
 import {
   GPUsConfigs,
@@ -26,14 +28,15 @@ import {
   TemplateCard,
   ThemeTag
 } from '@gpustack/core-ui';
-import { useIntl } from '@umijs/max';
+import { useAccess, useIntl } from '@umijs/max';
 import { Button, Tag } from 'antd';
 import { useMemo } from 'react';
 import styled from 'styled-components';
 import { manufactureColorMap, templateActions } from '../config';
 import { ListItem } from '../config/types';
 
-const imageLogoMap = {
+// Light theme logos
+const imageLogoLightMap = {
   vllm: vllmLogo,
   sglang: sgLangLogo,
   jupyter: jupyterLogo,
@@ -42,25 +45,31 @@ const imageLogoMap = {
   ubuntu: ubuntuLogo
 } as const;
 
+// Dark theme logos: inherit light, override only the ones that need a variant
+const imageLogoDarkMap: typeof imageLogoLightMap = {
+  ...imageLogoLightMap,
+  pytorch: pytorchLightLogo
+};
+
 const matchImageLogo = (
-  image: string | undefined
+  image: string | undefined,
+  isDark: boolean
 ): { logo: string; type: string } | null => {
   if (!image) return null;
+  const logoMap = imageLogoLightMap;
   const lower = image.toLowerCase();
-  let matched: keyof typeof imageLogoMap | null = null;
+  let matched: keyof typeof logoMap | null = null;
   let earliest = Infinity;
-  (Object.keys(imageLogoMap) as Array<keyof typeof imageLogoMap>).forEach(
-    (key) => {
-      const idx = lower.indexOf(key);
-      if (idx !== -1 && idx < earliest) {
-        earliest = idx;
-        matched = key;
-      }
+  (Object.keys(logoMap) as Array<keyof typeof logoMap>).forEach((key) => {
+    const idx = lower.indexOf(key);
+    if (idx !== -1 && idx < earliest) {
+      earliest = idx;
+      matched = key;
     }
-  );
+  });
   return matched
     ? {
-        logo: imageLogoMap[matched],
+        logo: logoMap[matched],
         type: matched
       }
     : null;
@@ -135,6 +144,25 @@ interface TemplateCardProps {
 
 const TemplateCardItem: React.FC<TemplateCardProps> = ({ data, onSelect }) => {
   const intl = useIntl();
+  const access = useAccess();
+  const { isDarkTheme } = useUserSettings();
+
+  // Only an explicit NULL owner (Global, admin-curated) is admin-only.
+  // A principal-owned row reaches a non-admin's list only when they own
+  // it, and an absent id (single-owner builds omit it on the wire) has
+  // no tenancy to restrict — both are manageable, so the check is strict
+  // ``!== null``. Clone stays available regardless — it reads the source
+  // and creates a fresh copy in the caller's own scope — so a non-admin
+  // can fork a Global preset into their org.
+  const canManage = !!access.canSeeAdmin || data.owner_principal_id !== null;
+
+  const actions = useMemo(
+    () =>
+      canManage
+        ? templateActions
+        : templateActions.filter((action) => action.key === 'clone'),
+    [canManage]
+  );
 
   const manufacturerLabelMap: Record<string, string> = useMemo(() => {
     return Object.values(GPUsConfigs).reduce(
@@ -158,7 +186,7 @@ const TemplateCardItem: React.FC<TemplateCardProps> = ({ data, onSelect }) => {
   };
 
   const renderLogo = () => {
-    const imageLogo = matchImageLogo(data.spec?.image);
+    const imageLogo = matchImageLogo(data.spec?.image, isDarkTheme);
     if (imageLogo?.logo) {
       return (
         <LogoImg
@@ -228,7 +256,7 @@ const TemplateCardItem: React.FC<TemplateCardProps> = ({ data, onSelect }) => {
       <span onClick={handleonClickAction} className="operations">
         <DropdownActions
           menu={{
-            items: templateActions,
+            items: actions,
             onClick: handleOnSelect
           }}
         >

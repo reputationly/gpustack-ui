@@ -2,10 +2,12 @@ import { PageAction } from '@/config';
 import { PageActionType } from '@/config/types';
 import { Input as CInput, LabelSelector } from '@gpustack/core-ui';
 import { useIntl } from '@umijs/max';
+import { useMemoizedFn } from 'ahooks';
 import { Form } from 'antd';
 import _ from 'lodash';
 import React, { useEffect, useId, useMemo } from 'react';
 import styled from 'styled-components';
+import { useFormContext } from '../config/form-context';
 import { useStepsContext } from '../config/steps-context';
 import { ClusterListItem as ListItem } from '../config/types';
 import ImageCredential from './image-credential';
@@ -68,13 +70,6 @@ export const OperatorImageForm: React.FC = () => {
   );
 };
 
-// The presence of `gpuInstanceOptions` on `k8s_options` is the source of truth
-// for whether GPU instances are enabled. Both the cluster-type selector
-// (rendered up top) and the static-address field (rendered in the advanced
-// section) watch this same path so they stay in sync without sharing local
-// state.
-const GPU_INSTANCE_OPTIONS_PATH = ['k8s_options', 'gpuInstanceOptions'];
-
 // Visual parity with @gpustack/core-ui's SwitchCard so the selector blends
 // in with surrounding form fields: same border, radius, padding, and
 // typography. The only differences are the two-column grid layout and an
@@ -101,6 +96,7 @@ const ClusterTypeGrid = styled.div`
 `;
 
 const ClusterTypeCard = styled.div<{ $active: boolean }>`
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -140,6 +136,17 @@ const ClusterTypeCard = styled.div<{ $active: boolean }>`
   }
 `;
 
+const ExperimentalTag = styled.span`
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  padding: 2px;
+  border-radius: 2px;
+  font-size: 10px;
+  font-weight: 400;
+  background-color: var(--ant-blue-1);
+`;
+
 const RadioDot = styled.span<{ $active: boolean }>`
   position: relative;
   flex-shrink: 0;
@@ -169,37 +176,30 @@ const RadioDot = styled.span<{ $active: boolean }>`
 
 // Card-based selector for cluster type. The two options are mutually exclusive
 // and the choice maps directly to the presence/absence of `gpuInstanceOptions`
-// on the form — "model" clears it, "gpu" seeds it to {} (preserving any
-// already-entered static address). No standalone form field is registered;
-// state is read via useWatch with `preserve: true` so it tracks updates made
-// through setFieldValue.
+// on the submitted payload. No standalone form field is registered; the click
+// only updates the shared `clusterType` state (see FormContext) — the payload's
+// `gpuInstanceOptions` shape is derived from it at submit (see cluster-form's
+// normalizeOutgoing), and the static-address field mounts/unmounts off it.
 export const ClusterTypeSelector: React.FC = () => {
   const intl = useIntl();
-  const form = Form.useFormInstance();
   const { presetClusterType } = useStepsContext();
   const labelId = useId();
-  const gpuInstanceOptions = Form.useWatch(GPU_INSTANCE_OPTIONS_PATH, {
-    form,
-    preserve: true
-  });
-  const value: 'model' | 'gpu' = gpuInstanceOptions ? 'gpu' : 'model';
+  // Cluster type is shared, explicit state (see FormContext): the click is the
+  // source of truth. This replaced a Form.useWatch on an unregistered path that
+  // did not re-render reliably when cleared to undefined.
+  const { clusterType, setClusterType } = useFormContext();
+  const value: 'model' | 'gpu' = clusterType ?? 'model';
 
-  const handleSelect = (next: 'model' | 'gpu') => {
-    if (!form || next === value) return;
-    if (next === 'gpu') {
-      form.setFieldValue(
-        GPU_INSTANCE_OPTIONS_PATH,
-        form.getFieldValue(GPU_INSTANCE_OPTIONS_PATH) ?? {}
-      );
-    } else {
-      form.setFieldValue(GPU_INSTANCE_OPTIONS_PATH, undefined);
-    }
-  };
+  const handleSelect = useMemoizedFn((next: 'model' | 'gpu') => {
+    if (next === value) return;
+    setClusterType?.(next);
+  });
 
   const options: {
     key: 'model' | 'gpu';
     title: string;
     description: string;
+    experimental?: boolean;
   }[] = [
     {
       key: 'model',
@@ -209,7 +209,8 @@ export const ClusterTypeSelector: React.FC = () => {
     {
       key: 'gpu',
       title: intl.formatMessage({ id: 'clusters.gpuInstances.title' }),
-      description: intl.formatMessage({ id: 'clusters.gpuInstances.tip' })
+      description: intl.formatMessage({ id: 'clusters.gpuInstances.tip' }),
+      experimental: true
     }
   ];
 
@@ -244,6 +245,11 @@ export const ClusterTypeSelector: React.FC = () => {
               }}
             >
               <RadioDot $active={active} />
+              {opt.experimental && (
+                <ExperimentalTag>
+                  {intl.formatMessage({ id: 'common.tag.experimental' })}
+                </ExperimentalTag>
+              )}
               <div className="body">
                 <div className="title">{opt.title}</div>
                 <div className="description">{opt.description}</div>
@@ -261,14 +267,13 @@ export const ClusterTypeSelector: React.FC = () => {
 // default container registry and the worker config (节点配置).
 export const GpuInstancesStaticAddressForm: React.FC = () => {
   const intl = useIntl();
-  // See note in ClusterTypeSelector: watch the full store so this field's
-  // visibility tracks the selector even before it has mounted its own
-  // Form.Item.
-  const enabled = !!Form.useWatch(GPU_INSTANCE_OPTIONS_PATH, {
-    preserve: true
-  });
+  // Visibility tracks the shared cluster-type state (see FormContext), so this
+  // field mounts/unmounts deterministically with the selector. Its Form.Item is
+  // the only thing keeping gpuInstanceOptions alive, so unmounting it here (with
+  // the form's preserve={false}) also clears that path from the store.
+  const { clusterType } = useFormContext();
 
-  if (!enabled) {
+  if (clusterType !== 'gpu') {
     return null;
   }
 

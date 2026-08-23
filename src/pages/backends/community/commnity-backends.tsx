@@ -120,13 +120,19 @@ const CommunityBackends: React.FC<{
 
   const renderItem = (item: ListItem) => {
     return (
-      <BackendCard
-        active={currentData?.id === item.id}
-        data={item}
-        layout="community"
-        onClick={handleOnClickItem}
-        actionsRenderer={actionsRenderer}
-      />
+      <div
+        style={{
+          backgroundColor: 'var(--ant-color-bg-container)'
+        }}
+      >
+        <BackendCard
+          active={currentData?.id === item.id}
+          data={item}
+          layout="community"
+          onClick={handleOnClickItem}
+          actionsRenderer={actionsRenderer}
+        />
+      </div>
     );
   };
 
@@ -164,6 +170,7 @@ const CommunityBackends: React.FC<{
           renderItem={renderItem}
         ></BackendCardList>
         <NoResult
+          minHeight="calc(100vh - 300px)"
           loading={dataSource.loading}
           loadend={dataSource.loadend}
           dataSource={dataSource.dataList}

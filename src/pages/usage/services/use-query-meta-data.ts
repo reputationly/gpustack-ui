@@ -13,6 +13,16 @@ type RouteOptionType = UsageFilterItem & {
   value: string;
 };
 
+// The multi-select keys options by ``value``; two entries sharing a display
+// name (e.g. an active model and a deleted one with the same name) must get
+// DIFFERENT values or selecting one selects the other. Prefer the real id;
+// id-less (deleted) entries fall back to a per-row token so they stay
+// independently selectable.
+const optionValue = (
+  id: string | number | null | undefined,
+  index: number
+): string => (id != null ? `id:${id}` : `row:${index}`);
+
 export default function useQueryUsageMetaData() {
   const { detailData, loading, cancelRequest, fetchData } =
     useQueryData<UsageMeta>({
@@ -21,48 +31,39 @@ export default function useQueryUsageMetaData() {
     });
   const { initialState } = useModel('@@initialState');
   const [result, setResult] = useState<{
-    models: GroupOption<UsageFilterItem>[];
     users: UserOptionType[];
     api_keys: GroupOption<UsageFilterItem>[];
     routes: RouteOptionType[];
+    organizations: RouteOptionType[];
+    user_groups: RouteOptionType[];
   }>({
-    models: [],
     users: [],
     api_keys: [],
-    routes: []
+    routes: [],
+    organizations: [],
+    user_groups: []
   });
 
-  // the current user sort in the first place
+  // Current account first, deleted entries last, everything else keeps its
+  // incoming order (sort is stable).
   const sortUsers = (users: UsageFilterItem[]) => {
     const currentUserId = initialState?.currentUser?.id;
-    if (!currentUserId) return users;
-
-    const sortedUsers = [...users].sort((a, b) => {
-      if (a.identity.current?.user_id === currentUserId) return -1;
-      if (b.identity.current?.user_id === currentUserId) return 1;
-      return 0;
-    });
-
-    return sortedUsers;
+    const rank = (u: UsageFilterItem) =>
+      currentUserId && u.identity.current?.user_id === currentUserId
+        ? 0
+        : u.deleted
+          ? 2
+          : 1;
+    return [...users].sort((a, b) => rank(a) - rank(b));
   };
 
   const queryMetaData = async () => {
     const res = await fetchData({});
     const sortedUsers = sortUsers(res?.filters?.users || []);
     const data = {
-      models: groupToOptions(res?.filters?.models || [], {
-        getGroupKey: (item) => item.identity.value.provider_name || 'gpustack',
-        getGroupType: (item) =>
-          item.identity.value.provider_type || 'deployments',
-        getChild: (item) => ({
-          ...item,
-          value: item.label,
-          label: item.identity.value.model_name || ''
-        })
-      }),
       users:
-        sortedUsers.map((item) => ({
-          value: item.label,
+        sortedUsers.map((item, index) => ({
+          value: optionValue(item.identity.current?.user_id, index),
           isCurrent:
             item.identity.current?.user_id === initialState?.currentUser?.id,
           ...item
@@ -71,16 +72,39 @@ export default function useQueryUsageMetaData() {
         getGroupKey: (item) => item.identity.value.user_name || 'unknown_user',
         getGroupType: (item) =>
           item.identity.value.api_key_is_custom ? 'custom' : 'default',
-        getChild: (item) => ({
+        getChild: (item, index) => ({
           ...item,
-          value: item.label,
+          value: optionValue(item.identity.current?.api_key_id, index),
           label: item.identity.value.api_key_name || ''
         })
-      }),
+        // Deleted keys sink to the bottom within each user group.
+      }).map((group) => ({
+        ...group,
+        children: [...group.children].sort(
+          (a, b) => Number(!!(a as any).deleted) - Number(!!(b as any).deleted)
+        )
+      })),
+      // Deleted models sink to the bottom of the dropdown.
       routes:
-        (res?.filters?.routes || []).map((item) => ({
+        (res?.filters?.routes || [])
+          .map((item, index) => ({
+            ...item,
+            value: optionValue(item.identity.current?.route_id, index)
+          }))
+          .sort((a, b) => Number(!!a.deleted) - Number(!!b.deleted)) || [],
+      // Platform-wide "All" view only (backend returns these empty otherwise).
+      // Deleted orgs sink to the bottom; groups are never flagged deleted.
+      organizations:
+        (res?.filters?.organizations || [])
+          .map((item, index) => ({
+            ...item,
+            value: optionValue(item.identity.current?.organization_id, index)
+          }))
+          .sort((a, b) => Number(!!a.deleted) - Number(!!b.deleted)) || [],
+      user_groups:
+        (res?.filters?.user_groups || []).map((item, index) => ({
           ...item,
-          value: item.label
+          value: optionValue(item.identity.current?.group_id, index)
         })) || []
     };
     setResult(data);

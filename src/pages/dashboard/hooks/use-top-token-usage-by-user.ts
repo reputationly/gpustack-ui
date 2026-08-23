@@ -1,27 +1,24 @@
 import useQueryTimeSeriesData from '@/pages/usage/services/use-query-timeseries-data';
-import { useIntl } from '@umijs/max';
 import { useEffect, useMemo } from 'react';
 import {
   baseColorMap,
   DashboardUsageCommonParams,
-  toUsageRankData
+  toUsageTokenBreakdownData
 } from '../config';
 
 export default function useTopTokenUsageByUser(
   commonParams: DashboardUsageCommonParams
 ) {
-  const intl = useIntl();
   const query = useQueryTimeSeriesData({
     key: 'topTokenUsageByUserData'
   });
-  const tokenUsageText = intl.formatMessage({ id: 'dashboard.tokens' });
 
   useEffect(() => {
     query
       .fetchData({
         ...commonParams,
         metric: 'total_tokens',
-        group_by: ['date', 'user'],
+        group_by: ['user'],
         page: 1,
         perPage: 10,
         sort_by: '-total_tokens'
@@ -31,13 +28,19 @@ export default function useTopTokenUsageByUser(
 
   const rankData = useMemo(
     () =>
-      toUsageRankData(
-        query.detailData,
-        'user',
-        tokenUsageText,
-        baseColorMap.base
-      ),
-    [query.detailData, tokenUsageText]
+      toUsageTokenBreakdownData(query.detailData, 'user', [
+        {
+          name: 'Prompt Tokens',
+          key: 'input_tokens',
+          color: baseColorMap.base
+        },
+        {
+          name: 'Completion Tokens',
+          key: 'output_tokens',
+          color: baseColorMap.baseR3
+        }
+      ]),
+    [query.detailData]
   );
 
   return {

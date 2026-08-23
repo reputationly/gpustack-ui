@@ -5,13 +5,19 @@ import {
   AutoTooltip,
   DropdownButtons,
   IconFont,
+  StatusTag,
   ThemeTag
 } from '@gpustack/core-ui';
 import { useIntl } from '@umijs/max';
 import type { ColumnsType } from 'antd/lib/table';
 import dayjs from 'dayjs';
 import { useMemo } from 'react';
-import { rowActionList, StorageTypeKindLabelMap } from '../config';
+import {
+  rowActionList,
+  status,
+  StorageTypeKindLabelMap,
+  StorageTypePhaseLabelMap
+} from '../config';
 import { ListItem } from '../config/types';
 
 interface ColumnsHookProps {
@@ -22,21 +28,13 @@ interface ColumnsHookProps {
 const getKindLabel = (record: ListItem) => {
   if (record.spec?.nfs)
     return (
-      <ThemeTag
-        style={{ width: 'fit-content' }}
-        color="cyan"
-        icon={<FolderOutlined />}
-      >
+      <ThemeTag color="cyan" icon={<FolderOutlined />}>
         {StorageTypeKindLabelMap.nfs}
       </ThemeTag>
     );
   if (record.spec?.s3)
     return (
-      <ThemeTag
-        style={{ width: 'fit-content' }}
-        color="green"
-        icon={<IconFont type="icon-database" />}
-      >
+      <ThemeTag color="green" icon={<IconFont type="icon-database" />}>
         {StorageTypeKindLabelMap.s3}
       </ThemeTag>
     );
@@ -80,6 +78,24 @@ const useStorageTypeColumns = ({
         key: 'kind',
         sorter: false,
         render: (_text, record) => getKindLabel(record)
+      },
+      {
+        title: intl.formatMessage({ id: 'common.table.status' }),
+        dataIndex: ['status', 'phase'],
+        key: 'status',
+        sorter: false,
+        render: (value: string, record: ListItem) =>
+          value ? (
+            <StatusTag
+              statusValue={{
+                status: status[value],
+                text: StorageTypePhaseLabelMap[value] || value,
+                message: record?.status?.phaseMessage || ''
+              }}
+            ></StatusTag>
+          ) : (
+            '-'
+          )
       },
       ...creatorCols,
       // {

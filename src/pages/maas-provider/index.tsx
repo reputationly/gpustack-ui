@@ -121,6 +121,7 @@ const MaasProvider: React.FC = () => {
     if (type !== 'Table') return;
     return (
       <NoResult
+        minHeight="calc(100vh - 300px)"
         loading={dataSource.loading}
         loadend={dataSource.loadend}
         dataSource={dataSource.dataList}
@@ -158,6 +159,7 @@ const MaasProvider: React.FC = () => {
         ></FilterBar>
         <ConfigProvider renderEmpty={renderEmpty}>
           <Table
+            className={'scroll-table'}
             rowKey="id"
             tableLayout="fixed"
             sortDirections={TABLE_SORT_DIRECTIONS}
@@ -170,6 +172,7 @@ const MaasProvider: React.FC = () => {
             rowSelection={rowSelection}
             columns={columns}
             scroll={{ x: 900 }}
+            onChange={handleTableChange}
             pagination={{
               size: 'middle',
               showSizeChanger: true,

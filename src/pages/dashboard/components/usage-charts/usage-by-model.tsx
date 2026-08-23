@@ -1,6 +1,6 @@
 import useCoolColors from '@/hooks/use-cool-colors';
 import useQueryTimeSeriesData from '@/pages/usage/services/use-query-timeseries-data';
-import { Chart } from '@gpustack/core-ui';
+import { Chart } from '@gpustack/core-ui/charts';
 import { formatLargeNumber } from '@gpustack/core-ui/utils';
 import { useIntl } from '@umijs/max';
 import type { GlobalToken } from 'antd';
@@ -57,7 +57,7 @@ const UsageByModel: React.FC<UsageByModelProps> = ({
       .fetchData({
         ...commonParams,
         metric: 'total_tokens',
-        group_by: ['date', 'route'],
+        group_by: ['route'],
         page: 1,
         perPage: 10,
         sort_by: '-total_tokens'
@@ -67,7 +67,7 @@ const UsageByModel: React.FC<UsageByModelProps> = ({
       .fetchData({
         ...commonParams,
         metric: 'api_requests',
-        group_by: ['date', 'route'],
+        group_by: ['route'],
         page: 1,
         perPage: 10,
         sort_by: '-api_requests'

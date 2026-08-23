@@ -58,7 +58,7 @@ const Credentials: React.FC = () => {
     key: PaginationKey.Credentials,
     fetchAPI: queryCredentialList,
     deleteAPI: deleteCredential,
-    contentForDelete: 'menu.clusterManagement.credentials'
+    contentForDelete: 'menu.resources.credentials'
   });
   const [, setClusterSession] = useAtom(clusterSessionAtom);
   const [isFromCluster, setIsFromCluster] = useAtom(fromClusterCreationAtom);
@@ -157,6 +157,7 @@ const Credentials: React.FC = () => {
     if (type !== 'Table') return;
     return (
       <NoResult
+        minHeight="calc(100vh - 300px)"
         loading={dataSource.loading}
         loadend={dataSource.loadend}
         dataSource={[]}
@@ -199,6 +200,7 @@ const Credentials: React.FC = () => {
 
         <ConfigProvider renderEmpty={renderEmpty}>
           <Table
+            className={'scroll-table'}
             tableLayout="fixed"
             columns={columns}
             dataSource={dataSource.dataList}

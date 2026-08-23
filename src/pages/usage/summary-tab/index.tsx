@@ -25,14 +25,16 @@ import { useCoolAccents } from '@/hooks/use-cool-colors';
 import BarChart from '@/pages/_components/bar-chart';
 import PieChart from '@/pages/_components/pie-chart';
 import { formatLargeNumber } from '@/utils';
+import { useModel } from '@@/plugin-model';
 import { CardWrapper } from '@gpustack/core-ui';
 import { useAccess, useIntl } from '@umijs/max';
 import { Col, Row } from 'antd';
 import dayjs from 'dayjs';
 import React, { useEffect, useMemo, useState } from 'react';
 import ResourceFilterBar from '../components/resource-filter-bar';
-import { FULL_FETCH_PAGE } from '../config';
-import useResourceMeta from '../hooks/use-resource-meta';
+import { FilterOptionType } from '../config/types';
+import useResourceMeta, { SelectOption } from '../hooks/use-resource-meta';
+import useQueryUsageMetaData from '../services/use-query-meta-data';
 import {
   bucketKey,
   generateBucketRange,
@@ -49,6 +51,9 @@ type QueryParams = {
   start: string;
   end: string;
   selectedUsers: number[];
+  // Platform-wide "All" view only (enterprise-gated); empty otherwise.
+  selectedOrganizations: number[];
+  selectedUserGroups: number[];
 };
 
 // Round to at most 2 decimals everywhere (avoid 1.60999999… in the donut center).
@@ -209,6 +214,8 @@ const DomainSection: React.FC<{
 const SummaryTab: React.FC = () => {
   const access = useAccess();
   const intl = useIntl();
+  const { initialState } = useModel('@@initialState');
+  const currentUserId = initialState?.currentUser?.id;
   const t = (id: string) => intl.formatMessage({ id });
   // One vivid primary per summary card (Tokens / Compute / Storage).
   const coolColors = useCoolAccents()(3);
@@ -222,17 +229,76 @@ const SummaryTab: React.FC = () => {
 
   // Date range + user filter live together: every fetch keys off all three, so
   // a single object keeps them in sync and trims the dependency arrays.
-  const [queryParams, setQueryParams] = useState<{
-    start: string;
-    end: string;
-    selectedUsers: number[];
-  }>({
+  const [queryParams, setQueryParams] = useState<QueryParams>({
     start: dayjs().subtract(29, 'day').format('YYYY-MM-DD'),
     end: dayjs().format('YYYY-MM-DD'),
-    selectedUsers: []
+    selectedUsers: [],
+    selectedOrganizations: [],
+    selectedUserGroups: []
   });
-  const { start, end, selectedUsers } = queryParams;
-  const { creators: userOptions } = useResourceMeta(scope);
+  const {
+    start,
+    end,
+    selectedUsers,
+    selectedOrganizations,
+    selectedUserGroups
+  } = queryParams;
+  const {
+    creators: resourceUsers,
+    organizations,
+    user_groups: userGroups
+  } = useResourceMeta(scope);
+  const { detailData: tokenMeta, fetchData: fetchTokenMeta } =
+    useQueryUsageMetaData();
+
+  // The user filter unions two sources: resource creators (GPU / storage
+  // usage) and the token-usage users (/usage/meta) — a user may appear in only
+  // one. Deduped by user id. The token meta also carries the per-user identity
+  // the token-series endpoint filters on (see ``tokenUserById``).
+  const userOptions = useMemo<SelectOption[]>(() => {
+    const map = new Map<number, SelectOption>();
+    resourceUsers.forEach((u) =>
+      map.set(u.value, {
+        value: u.value,
+        label: u.label,
+        deleted: u.deleted,
+        isCurrent: u.isCurrent
+      })
+    );
+    (tokenMeta?.users || []).forEach((u) => {
+      const id = u.identity.current?.user_id;
+      if (id == null) return;
+      const existing = map.get(id);
+      if (existing) {
+        // A user in both sources is deleted if either marks it so, so the
+        // dropdown still shows the DeletedTag.
+        if (u.deleted) existing.deleted = true;
+        return;
+      }
+      map.set(id, {
+        value: id,
+        label: u.label,
+        deleted: u.deleted,
+        isCurrent: currentUserId != null && id === currentUserId
+      });
+    });
+    // Signed-in user first (tagged "[Current Account]", matches the Tokens
+    // tab), deleted entries last, everything else keeps its order — regardless
+    // of which source it came from.
+    const rank = (o: SelectOption) => (o.isCurrent ? 0 : o.deleted ? 2 : 1);
+    return Array.from(map.values()).sort((a, b) => rank(a) - rank(b));
+  }, [resourceUsers, tokenMeta, currentUserId]);
+
+  // user id → the identity object the token series filters by. Built from the
+  // token meta so the trend's ``users`` filter carries the real identity.
+  const tokenUserById = useMemo(() => {
+    const map = new Map<number, FilterOptionType>();
+    (tokenMeta?.users || []).forEach((u) => {
+      const id = u.identity.current?.user_id;
+      if (id != null) map.set(id, { identity: u.identity });
+    });
+    return map;
+  }, [tokenMeta]);
 
   const {
     detailData: summary,
@@ -281,16 +347,54 @@ const SummaryTab: React.FC = () => {
       setQueryParams(currentParams);
     }
 
-    // "filter by user" — restricts every resource fetch to these creator ids.
-    const creatorFilter = currentParams.selectedUsers.length
-      ? { creator_ids: currentParams.selectedUsers }
-      : undefined;
+    // "filter by user" (+ enterprise org / user-group) — restricts every
+    // resource fetch to these creator / org / group ids.
+    const creatorFilter =
+      currentParams.selectedUsers.length ||
+      currentParams.selectedOrganizations.length ||
+      currentParams.selectedUserGroups.length
+        ? {
+            ...(currentParams.selectedUsers.length
+              ? { creator_ids: currentParams.selectedUsers }
+              : {}),
+            ...(currentParams.selectedOrganizations.length
+              ? { organization_ids: currentParams.selectedOrganizations }
+              : {}),
+            ...(currentParams.selectedUserGroups.length
+              ? { user_group_ids: currentParams.selectedUserGroups }
+              : {})
+          }
+        : undefined;
+
+    // The token series hits /usage/breakdown, which filters users by identity
+    // rather than the creator_ids the resource endpoints take — so the token
+    // trend honors the user filter like the totals do. Resolve each id to its
+    // token-meta identity, falling back to a minimal current.user_id object for
+    // users present only in the resource meta.
+    const tokenUserFilter: { users?: FilterOptionType[] } = currentParams
+      .selectedUsers.length
+      ? {
+          users: currentParams.selectedUsers.map(
+            (id) =>
+              tokenUserById.get(id) ??
+              ({
+                identity: { current: { user_id: id } }
+              } as unknown as FilterOptionType)
+          )
+        }
+      : {};
 
     await Promise.all([
       fetchSummary({
         ...commonParams,
         creator_ids: currentParams.selectedUsers.length
           ? currentParams.selectedUsers
+          : undefined,
+        organization_ids: currentParams.selectedOrganizations.length
+          ? currentParams.selectedOrganizations
+          : undefined,
+        user_group_ids: currentParams.selectedUserGroups.length
+          ? currentParams.selectedUserGroups
           : undefined
       }),
 
@@ -300,21 +404,21 @@ const SummaryTab: React.FC = () => {
         filters: creatorFilter
       }),
 
-      // Date-bucketed trends: fetch the whole series (FULL_FETCH_PAGE).
-      // A metric-desc page would drop low-traffic (often most recent)
-      // buckets and leave gaps in the chart.
+      // Date-bucketed trends: fetch the whole series via the no-pagination
+      // sentinel (page: -1). A metric-desc page would drop low-traffic (often
+      // most recent) buckets and leave gaps in the chart.
       fetchTokenSeries({
         ...commonParams,
         metric: 'total_tokens',
         group_by: ['date'],
         granularity,
-        ...FULL_FETCH_PAGE,
-        filters: {}
+        page: -1,
+        filters: tokenUserFilter
       }),
 
       fetchComputeBreakdown({
         ...paginationParams,
-        ...FULL_FETCH_PAGE,
+        page: -1,
         group_by: ['date'],
         granularity,
         filters: creatorFilter
@@ -322,7 +426,7 @@ const SummaryTab: React.FC = () => {
 
       fetchStorageByDate({
         ...paginationParams,
-        ...FULL_FETCH_PAGE,
+        page: -1,
         group_by: ['date'],
         granularity,
         filters: creatorFilter
@@ -414,11 +518,20 @@ const SummaryTab: React.FC = () => {
     fetchAll({ selectedUsers: users });
   };
 
+  const handleOrganizationsChange = (ids: number[]) => {
+    fetchAll({ selectedOrganizations: ids });
+  };
+
+  const handleUserGroupsChange = (ids: number[]) => {
+    fetchAll({ selectedUserGroups: ids });
+  };
+
   const onRefresh = () => {
     fetchAll();
   };
 
   useEffect(() => {
+    fetchTokenMeta();
     fetchAll();
   }, []);
 
@@ -431,6 +544,12 @@ const SummaryTab: React.FC = () => {
         userOptions={userOptions}
         selectedUsers={selectedUsers}
         onUsersChange={handleUserFilterChange}
+        organizationOptions={organizations}
+        userGroupOptions={userGroups}
+        selectedOrganizations={selectedOrganizations}
+        selectedUserGroups={selectedUserGroups}
+        onOrganizationsChange={handleOrganizationsChange}
+        onUserGroupsChange={handleUserGroupsChange}
         onRefresh={onRefresh}
       />
       <div style={{ height: 24 }} />

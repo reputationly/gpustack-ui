@@ -72,6 +72,7 @@ const GPUList: React.FC<GPUListProps> = ({ clusterId, source }) => {
     if (type !== 'Table') return;
     return (
       <NoResult
+        minHeight="calc(100vh - 300px)"
         loading={dataSource.loading}
         loadend={dataSource.loadend}
         dataSource={dataSource.dataList}
@@ -122,14 +123,14 @@ const GPUList: React.FC<GPUListProps> = ({ clusterId, source }) => {
             columns={columns}
             sortDirections={TABLE_SORT_DIRECTIONS}
             showSorterTooltip={false}
-            tableLayout={'auto'}
+            scroll={{ x: 'max-content' }}
+            className={'scroll-table'}
             dataSource={dataSource.dataList}
             loading={{
               spinning: dataSource.loading,
               size: 'middle'
             }}
             rowKey="id"
-            scroll={{ x: 900 }}
             onChange={handleTableChange}
             pagination={{
               showSizeChanger: true,

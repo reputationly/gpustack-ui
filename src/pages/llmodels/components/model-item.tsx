@@ -1,12 +1,13 @@
+import PluginExtraFields from '@/components/plugin-extra-fields';
 import {
   IconFont,
-  StatusTag,
+  StatusDot,
   TagsWrapper,
   TemplateCard,
   ThemeTag
 } from '@gpustack/core-ui';
 import { useIntl, useNavigate } from '@umijs/max';
-import { Button } from 'antd';
+import { Button, Tooltip } from 'antd';
 import _ from 'lodash';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
@@ -20,6 +21,11 @@ import {
   MyModelsStatusValueMap
 } from '../config';
 import { categoryToPathMap } from '../config/button-actions';
+import {
+  defaultModelLogo,
+  getCategoryLogo,
+  getModelLogo
+} from '../utils/model-logo';
 
 const CardWrapper = styled.div`
   &:hover {
@@ -44,7 +50,7 @@ const ModelItemContent = styled.div`
   flex-direction: column;
   height: 100%;
   width: 100%;
-  cursor: default;
+  cursor: pointer;
   .content {
     display: flex;
     justify-content: space-between;
@@ -84,6 +90,14 @@ const ModelItemContent = styled.div`
   }
 `;
 
+const ModelLogo = styled.img`
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  object-fit: contain;
+  flex: none;
+`;
+
 const Header = styled.div`
   margin-bottom: 8px;
   display: flex;
@@ -119,15 +133,23 @@ const renderTag = (item: any, index = 0) => {
 
 const ModelItem: React.FC<{
   model: Record<string, any>;
+  onClick?: (model: Record<string, any>) => void;
 }> = (props) => {
-  const { model } = props;
+  const { model, onClick } = props;
   const intl = useIntl();
   const navigate = useNavigate();
+
+  const handleCardClick = () => {
+    onClick?.(model);
+  };
 
   // ``model.name`` from ``/v2/my-models`` is the OpenAI-style id
   // (org-prefixed for non-platform routes, bare for platform). Use it
   // verbatim — the playground / dispatcher both key off that exact id.
-  const handleOpenPlayGroundClick = () => {
+  const handleOpenPlayGroundClick = (e: React.MouseEvent) => {
+    // Card is clickable (opens API access info); keep the playground
+    // action isolated so it doesn't also trigger the card click.
+    e.stopPropagation();
     const modelName = encodeURIComponent(model.name);
     for (const [category, path] of Object.entries(categoryToPathMap)) {
       if (
@@ -148,6 +170,11 @@ const ModelItem: React.FC<{
     navigate(`/playground/chat?model=${modelName}`);
   };
 
+  // Logo priority: brand logo matched from the name → tinted category
+  // icon (from model_icons) → generic default image.
+  const brandLogo = getModelLogo(model.name);
+  const categoryLogo = brandLogo ? null : getCategoryLogo(model.categories);
+
   // context length
   const maxToken = useMemo(() => {
     const meta = model.meta || {};
@@ -166,32 +193,67 @@ const ModelItem: React.FC<{
     return _.round(max_tokens / 1024);
   }, [model]);
 
+  // Ready is the normal state — show just the dot (no label); other states
+  // (Not Ready / Stopped) keep their label so the problem is legible.
+  const statusNode = (
+    <StatusDot
+      statusValue={{
+        status: MyModelsStatusMap[model.status],
+        text:
+          model.status === MyModelsStatusValueMap.Ready ||
+          !MyModelsStatusLabelMap[model.status]
+            ? ''
+            : intl.formatMessage({
+                id: MyModelsStatusLabelMap[model.status]
+              })
+      }}
+    />
+  );
+
   return (
     <CardWrapper>
       <TemplateCard
         height={140}
-        clickable={false}
+        clickable={true}
         hoverable={true}
         ghost
+        onClick={handleCardClick}
         header={
           <Header>
-            <span className="text gap-8">
-              <IconFont
-                type={sourceIconMap[model.source]}
-                style={{ fontSize: 24 }}
-              />
-              <span>{model.name}</span>
+            <span className="text gap-16">
+              {brandLogo ? (
+                <ModelLogo src={brandLogo} alt="" />
+              ) : categoryLogo ? (
+                <ModelLogo src={categoryLogo} alt="" />
+              ) : (
+                <ModelLogo src={defaultModelLogo} alt="" />
+              )}
+              <span className="flex-center" style={{ gap: 8, minWidth: 0 }}>
+                <span>{model.name}</span>
+                {/* Status moved to a compact dot right after the name, freeing
+                    the header's right side for the price summary. The dot keeps
+                    the state message on hover (StatusDot has no built-in one). */}
+                <span
+                  style={{
+                    fontWeight: 400,
+                    fontSize: 'var(--font-size-small)'
+                  }}
+                >
+                  {model.state_message ? (
+                    <Tooltip title={model.state_message}>
+                      <span style={{ display: 'inline-flex' }}>
+                        {statusNode}
+                      </span>
+                    </Tooltip>
+                  ) : (
+                    statusNode
+                  )}
+                </span>
+              </span>
             </span>
-            <StatusTag
-              maxTooltipWidth={400}
-              statusValue={{
-                status: MyModelsStatusMap[model.status],
-                text: intl.formatMessage({
-                  id: MyModelsStatusLabelMap[model.status] || ''
-                }),
-                message: model.state_message
-              }}
-            ></StatusTag>
+            <span className="flex-center gap-8">
+              <PluginExtraFields name="ModelPriceSummary" context={{ model }} />
+            </span>
           </Header>
         }
       >
@@ -234,14 +296,23 @@ const ModelItem: React.FC<{
                   </>
                 )}
               </div>
-              {[MyModelsStatusValueMap.Active].includes(model.status) && (
+              {[MyModelsStatusValueMap.Ready].includes(model.status) && (
                 <Button
                   size="middle"
+                  type="default"
                   className="btn"
-                  type="primary"
+                  style={{
+                    borderRadius: 6,
+                    paddingInline: 12
+                  }}
                   onClick={handleOpenPlayGroundClick}
                 >
                   {intl.formatMessage({ id: 'models.openinplayground' })}
+                  <IconFont
+                    type="icon-down2"
+                    rotate={-90}
+                    style={{ marginLeft: 4 }}
+                  ></IconFont>
                 </Button>
               )}
             </div>

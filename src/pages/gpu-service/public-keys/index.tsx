@@ -110,6 +110,7 @@ const GPUServicePublicKeys: React.FC = () => {
     if (type !== 'Table') return;
     return (
       <NoResult
+        minHeight="calc(100vh - 300px)"
         loading={dataSource.loading}
         loadend={dataSource.loadend}
         dataSource={dataSource.dataList}
@@ -153,6 +154,7 @@ const GPUServicePublicKeys: React.FC = () => {
         />
         <ConfigProvider renderEmpty={renderEmpty}>
           <Table
+            className={'scroll-table'}
             columns={columns}
             dataSource={dataSource.dataList}
             rowSelection={rowSelection}

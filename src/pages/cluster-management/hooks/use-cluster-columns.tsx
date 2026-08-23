@@ -13,7 +13,7 @@ import {
   type TableColumnProps as SealColumnProps
 } from '@gpustack/core-ui';
 import { useIntl } from '@umijs/max';
-import { Tooltip, Typography } from 'antd';
+import { Tooltip } from 'antd';
 import dayjs from 'dayjs';
 import { useAtomValue } from 'jotai';
 import { useMemo } from 'react';
@@ -85,21 +85,15 @@ const clusterActionList = [
 ];
 
 const useClusterColumns = (
-  handleSelect: (val: string, record: ClusterListItem, item?: any) => void,
-  onCellClick?: (record: ClusterListItem, dataIndex: string) => void
+  handleSelect: (val: string, record: ClusterListItem, item?: any) => void
 ): SealColumnProps[] => {
   const intl = useIntl();
   const systemConfig = useAtomValue(systemConfigAtom);
   const pluginCols = usePluginListColumns('clusters');
-  // The cluster-detail page is shipped in OSS source, but OSS keeps
-  // it unreachable from the cluster list — the link is only
-  // surfaced when a plugin opts in via
-  // `clusterDetail.linkableName`. Without a plugin we render the
-  // name as plain text (matches the pre-restore behaviour); with one
-  // we use Typography.Link wired to the parent's `onCellClick`.
-
-  const { linkableName: nameLinkable, useGenerateActions } =
-    getGPUStackPlugin()?.clusterDetail || {};
+  // The cluster name is plain text: there is no cluster-detail page
+  // to route into. A plugin may still contribute extra row actions
+  // (topology, Cluster Access) via `clusterDetail.useGenerateActions`.
+  const { useGenerateActions } = getGPUStackPlugin()?.clusterDetail || {};
 
   const actionList =
     useGenerateActions?.({ actions: clusterActionList }) || clusterActionList;
@@ -159,14 +153,8 @@ const useClusterColumns = (
         span: 3,
         render: (text: string, record: ClusterListItem) => (
           <>
-            <AutoTooltip ghost title={text}>
-              {nameLinkable ? (
-                <Typography.Link onClick={() => onCellClick?.(record, 'name')}>
-                  {record.name}
-                </Typography.Link>
-              ) : (
-                <span className="text-primary">{record.name}</span>
-              )}
+            <AutoTooltip ghost title={text} minWidth={20}>
+              <span className="text-primary">{record.name}</span>
             </AutoTooltip>
             {record.is_default && (
               <Tooltip
@@ -188,6 +176,7 @@ const useClusterColumns = (
         dataIndex: 'provider',
         sorter: tableSorter(2),
         span: spans.provider,
+        minWidth: 110,
         render: (value: string) => (
           <AutoTooltip ghost minWidth={20}>
             {ProviderLabelMap[value]}
@@ -197,7 +186,7 @@ const useClusterColumns = (
       {
         title: intl.formatMessage({ id: 'dashboard.totalgpus' }),
         dataIndex: 'gpus',
-        span: 2,
+        width: 100,
         sorter: tableSorter(3),
         render: (value: number) => <span>{value}</span>
       },
@@ -206,13 +195,15 @@ const useClusterColumns = (
         dataIndex: 'models',
         sorter: tableSorter(4),
         span: spans.deployments,
+        maxWidth: 150,
         render: (value: number) => <span>{value}</span>
       },
       {
         title: intl.formatMessage({ id: 'resources.nodes' }),
         dataIndex: 'workers',
+        minWidth: 100,
+        maxWidth: 120,
         sorter: tableSorter(5),
-        span: spans.workers,
         render: (value: number, record: ClusterListItem) => (
           <span>
             {record.ready_workers} / {record.workers}
@@ -223,6 +214,8 @@ const useClusterColumns = (
         title: intl.formatMessage({ id: 'common.table.status' }),
         dataIndex: 'state',
         span: spans.status,
+        minWidth: 80,
+        align: 'center',
         render: (value: number, record: ClusterListItem) => (
           <StatusTag
             statusValue={{
@@ -237,7 +230,7 @@ const useClusterColumns = (
         title: intl.formatMessage({ id: 'common.table.createTime' }),
         dataIndex: 'created_at',
         sorter: tableSorter(6),
-        span: spans.createTime,
+        width: 180,
         render: (value: string) => (
           <AutoTooltip ghost minWidth={20}>
             {dayjs(value).format('YYYY-MM-DD HH:mm:ss')}
@@ -258,7 +251,7 @@ const useClusterColumns = (
         )
       }
     ];
-  }, [handleSelect, onCellClick, intl, pluginCols]);
+  }, [handleSelect, intl, pluginCols]);
 };
 
 export default useClusterColumns;

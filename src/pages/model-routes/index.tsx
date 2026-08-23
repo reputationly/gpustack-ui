@@ -291,6 +291,9 @@ const ModelRoutes: React.FC = () => {
         dataList={list}
         onSelect={onChildSelect}
         sourceModels={sourceModels}
+        gridTemplate={options.gridTemplate}
+        prefixWidth={options.prefixWidth}
+        columns={options.columns}
       />
     );
   };
@@ -364,6 +367,7 @@ const ModelRoutes: React.FC = () => {
         >
           <SealTable
             rowKey="id"
+            emptyMinHeight="calc(100vh - 300px)"
             loadChildren={loadChildrenData}
             sortDirections={TABLE_SORT_DIRECTIONS}
             expandedRowKeys={expandedRowKeys}
@@ -381,6 +385,7 @@ const ModelRoutes: React.FC = () => {
             expandable={true}
             empty={
               <NoResult
+                minHeight="calc(100vh - 300px)"
                 loading={dataSource.loading}
                 loadend={dataSource.loadend}
                 dataSource={dataSource.dataList}

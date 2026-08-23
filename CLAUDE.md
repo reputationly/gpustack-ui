@@ -88,6 +88,16 @@ Prefer action-driven updates, explicit handlers, and localized state transitions
 
 Existing `styled-components` usage is legacy tech debt — do not migrate it wholesale, but do not add new `styled-components` either. Theme tokens (`var(--ant-color-*)`) work in all three approaches.
 
+## Layout
+
+Compose layout with Ant components, not hand-written `display: flex`.
+
+- **1D flex** (row/column with `gap`, `align`, `justify`) → `Flex`. Do not write raw `display: flex` in new code.
+- **Inline sequence** of a few elements with uniform spacing → `Space`.
+- **Page/grid columns** → `Row` / `Col`.
+
+Drive spacing with the theme scale (`Flex`/`Space` `gap`, or `var(--ant-*)` spacing tokens), not scattered `px` literals.
+
 # Naming conventions
 
 A page module lives under `src/pages/{module}` with this sub-structure: `components/`, `config/`, `forms/`, `hooks/`, `services/`, `index.tsx`. File naming:
@@ -101,6 +111,7 @@ A page module lives under `src/pages/{module}` with this sub-structure: `compone
 
 - `config/types.ts` — TypeScript types. Form shape → `FormData`; table/list row → `ListItem`.
 - `config/index.ts` — static constants, enums, and value/label maps (e.g. `XxxStatusValueMap`, `XxxStatusLabelMap`). Keep constants out of `types.ts`.
+- **`Select` options that need i18n**: set `label` to the message key and add `locale: true` on the option — the field translates it at render. Omit `locale` for options whose label is already final text. Ref `src/pages/benchmark/config/index.ts`.
 
 # Common components
 
@@ -113,12 +124,23 @@ Always check `@gpustack/core-ui` first. Frequently reused:
 - **Form fields**: `BaseSelect`, `Input` (labeled).
 - **Text overflow**: `AutoTooltip`.
 - **Icons**: `IconFont`.
-- **Status display** (success/failed/processing/warning): `StatusTag`.
+- **Tags & status** (4 variants): see the section below.
 - **Permission-gated visibility**: `Access` / `useAccess`.
 - **Request hooks**: `useRequest` / `useQueryData` / `useQueryDataList`.
 - **Table data fetching**: `useTableFetch`.
 - **Submit guard** (prevent double-submit): `useSubmitLock`.
 - **Tabbed forms**: `ScrollSpyTabs`.
+
+# Tags & status indicators
+
+Four core-ui components cover tag/status display in tables and lists. Pick by **what the value means**, not by how it looks — don't reach for a generic antd `Tag`:
+
+- **`StatusTag`** — semantic status with a **dynamic message/detail** (tooltip, download, extra content). Use when a row's status carries variable text, e.g. a failed job with an error message. Colors come from `StatusColorMap` (error/warning/transitioning/success/inactive).
+- **`StatusDot`** — colored dot + short label, **no message**. Use for a plain status/type cell where the value is a fixed enum (e.g. an event-type or log column). Same `StatusColorMap` palette; `inactive` dot is quaternary. If the status needs dynamic text, use `StatusTag` instead.
+- **`ThemeTag`** — a **standalone category label** (independent content, e.g. a permission scope or a model name). Default neutral; wraps antd `Tag`.
+- **`TextAttribute`** — a small neutral pill that is a **subordinate annotation following a primary text** (e.g. `key-name [custom]`), not a standalone tag. Manages its own leading margin. Two variants: `filled` (default) and `outlined`. Ref the name column in `src/pages/api-keys/hooks/use-keys-columns.tsx`.
+
+Rule of thumb: semantic + dynamic text → `StatusTag`; semantic + fixed enum → `StatusDot`; independent category → `ThemeTag`; annotation of nearby text → `TextAttribute`.
 
 # Dynamic add-item form fields
 

@@ -1,3 +1,4 @@
+import PluginExtraFields from '@/components/plugin-extra-fields';
 import useRangePickerPreset from '@/pages/dashboard/hooks/use-rangepicker-preset';
 import { DownloadOutlined, SyncOutlined } from '@ant-design/icons';
 import {
@@ -13,6 +14,7 @@ import React from 'react';
 import { GroupOption } from '../config';
 import { UsageFilterItem } from '../config/types';
 import FilterBarCss from '../styles/filter-bar.less';
+import DeletedTag from './deleted-tag';
 
 type valueType = string | number | null;
 const DefaultDateConfig = {
@@ -36,6 +38,14 @@ interface FilterBarProps {
   routeOptions: OptionType[];
   userOptions: OptionType[];
   apiKeyOptions: GroupOption<UsageFilterItem>[];
+  // Platform-wide "All" view only; empty otherwise (backend-gated). Rendered
+  // by the enterprise ``UsageFilterBar`` slot.
+  organizationOptions?: OptionType[];
+  userGroupOptions?: OptionType[];
+  selectedOrganizations?: string[];
+  selectedUserGroups?: string[];
+  onOrganizationsChange?: (value: string[]) => void;
+  onUserGroupsChange?: (value: string[]) => void;
   activeApiKeys: valueType[][];
   handlePickerChange: (picker: DateType) => void;
   onScopeChange: (value: string) => void;
@@ -76,6 +86,12 @@ const FilterBar: React.FC<FilterBarProps> = (props) => {
     onRoutesChange,
     onUsersChange,
     onApiKeysChange,
+    organizationOptions,
+    userGroupOptions,
+    selectedOrganizations,
+    selectedUserGroups,
+    onOrganizationsChange,
+    onUserGroupsChange,
     onExportChart,
     onExportTable,
     handleSearch
@@ -156,6 +172,17 @@ const FilterBar: React.FC<FilterBarProps> = (props) => {
     );
   };
 
+  // The entity id behind a deleted option, shown in the "Deleted·#{id}" tag so
+  // two deleted entries with the same (now-stale) label stay distinguishable.
+  const getEntityId = (data: any): valueType => {
+    const current = data?.identity?.current;
+    if (!current) return null;
+    return current.user_id ?? current.api_key_id ?? current.route_id ?? null;
+  };
+
+  const deletedLabelStyle = (deleted?: boolean) =>
+    deleted ? { color: 'var(--ant-color-text-tertiary)' } : undefined;
+
   const handleOnApiKeysChange = (
     value: valueType[][],
     selectedOptions: any
@@ -175,9 +202,10 @@ const FilterBar: React.FC<FilterBarProps> = (props) => {
     if (!data.isParent) {
       return (
         <span className="flex-center gap-4">
-          <AutoTooltip ghost>{data.label}</AutoTooltip>
-          {data.deleted &&
-            renderTag(intl.formatMessage({ id: 'usage.table.deleted' }))}
+          <AutoTooltip ghost style={deletedLabelStyle(data.deleted)}>
+            {data.label}
+          </AutoTooltip>
+          {data.deleted && <DeletedTag id={getEntityId(data)} />}
         </span>
       );
     }
@@ -193,9 +221,10 @@ const FilterBar: React.FC<FilterBarProps> = (props) => {
     const { data } = option;
     return (
       <span className="flex-center gap-4">
-        <AutoTooltip ghost>{data.label}</AutoTooltip>
-        {data.deleted &&
-          renderTag(intl.formatMessage({ id: 'usage.table.deleted' }))}
+        <AutoTooltip ghost style={deletedLabelStyle(data.deleted)}>
+          {data.label}
+        </AutoTooltip>
+        {data.deleted && <DeletedTag id={getEntityId(data)} />}
       </span>
     );
   };
@@ -214,11 +243,12 @@ const FilterBar: React.FC<FilterBarProps> = (props) => {
     const { data } = option;
     return (
       <span className="flex-center gap-4">
-        <AutoTooltip ghost>{data.label}</AutoTooltip>
+        <AutoTooltip ghost style={deletedLabelStyle(data.deleted)}>
+          {data.label}
+        </AutoTooltip>
         {data.isCurrent &&
           renderTag(intl.formatMessage({ id: 'usage.user.currentAccount' }))}
-        {data.deleted &&
-          renderTag(intl.formatMessage({ id: 'usage.table.deleted' }))}
+        {data.deleted && <DeletedTag id={getEntityId(data)} />}
       </span>
     );
   };
@@ -330,6 +360,21 @@ const FilterBar: React.FC<FilterBarProps> = (props) => {
             onChange={onApiKeysChange}
           />
         )}
+        {/* Enterprise-only Organization / User Group filters (platform-wide
+            "All" view). Renders nothing when no plugin is registered or the
+            backend returned no options. */}
+        <PluginExtraFields
+          name="UsageFilterBar"
+          context={{
+            organizationOptions: organizationOptions || [],
+            userGroupOptions: userGroupOptions || [],
+            selectedOrganizations: selectedOrganizations || [],
+            selectedUserGroups: selectedUserGroups || [],
+            onOrganizationsChange,
+            onUserGroupsChange,
+            optionLabelRender: singleOptionRender
+          }}
+        />
         <Button
           type="text"
           style={{ color: 'var(--ant-color-text-tertiary)' }}

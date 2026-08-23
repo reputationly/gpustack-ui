@@ -5,6 +5,7 @@ import type { PageActionType } from '@/config/types';
 import useExpandedRowKeys from '@/hooks/use-expanded-row-keys';
 import useTableFetch from '@/hooks/use-table-fetch';
 import useWatchList from '@/hooks/use-watch-list';
+import { getGPUStackPlugin } from '@/plugins';
 import {
   DeleteModal,
   FilterBar,
@@ -14,7 +15,7 @@ import {
   TableOrder,
   TableProvider
 } from '@gpustack/core-ui';
-import { useIntl, useNavigate } from '@umijs/max';
+import { useIntl } from '@umijs/max';
 import { useMemoizedFn } from 'ahooks';
 import { message } from 'antd';
 import { useAtom } from 'jotai';
@@ -73,7 +74,7 @@ const Clusters: React.FC = () => {
     deleteAPI: deleteCluster,
     watch: true,
     API: CLUSTERS_API,
-    contentForDelete: 'menu.clusterManagement.clusters',
+    contentForDelete: 'menu.resources.clusters',
     defaultQueryParams: {
       // Management view: drop cross-Org cluster_access grants. Org
       // Owner only sees the clusters they own here. Pickers that
@@ -82,10 +83,13 @@ const Clusters: React.FC = () => {
       mine: true
     }
   });
-  const navigate = useNavigate();
   const { goToGrafana, ActionButton } = useGranfanaLink({
     type: 'cluster'
   });
+  // Cluster Access lives in the enterprise plugin: it contributes the
+  // row action and this self-controlled drawer, owning its own
+  // open/close state. OSS just mounts it (nothing without a plugin).
+  const AccessDrawer = getGPUStackPlugin()?.clusterDetail?.AccessDrawer;
   const { watchDataList: allWorkerPoolList } = useWatchList(WORKER_POOLS_API);
   const [expandAtom] = useAtom(expandKeysAtom);
   const [clusterSession, setClusterSession] = useAtom(clusterSessionAtom);
@@ -272,14 +276,6 @@ const Clusters: React.FC = () => {
     );
   };
 
-  const handleOnCell = useMemoizedFn((record: ClusterListItem, dataIndex) => {
-    if (dataIndex === 'name') {
-      navigate(
-        `/resources/clusters/detail?id=${record.id}&name=${record.name}&page=clusters`
-      );
-    }
-  });
-
   useEffect(() => {
     const fetchCredentialList = async () => {
       const data = await queryCredentialList({ page: -1 });
@@ -362,11 +358,14 @@ const Clusters: React.FC = () => {
         dataList={list}
         provider={options.parent?.provider}
         clusterId={options.parent?.id}
+        gridTemplate={options.gridTemplate}
+        prefixWidth={options.prefixWidth}
+        columns={options.columns}
       />
     );
   };
 
-  const columns = useClusterColumns(handleSelect, handleOnCell);
+  const columns = useClusterColumns(handleSelect);
 
   return (
     <>
@@ -399,6 +398,7 @@ const Clusters: React.FC = () => {
         >
           <SealTable
             rowKey="id"
+            emptyMinHeight="calc(100vh - 300px)"
             loadChildren={getWorkerPoolList}
             sortDirections={TABLE_SORT_DIRECTIONS}
             expandedRowKeys={expandedRowKeys}
@@ -420,7 +420,7 @@ const Clusters: React.FC = () => {
                 loadend={dataSource.loadend}
                 dataSource={dataSource.dataList}
                 image={<IconFont type="icon-cluster-outline" />}
-                filters={_.omit(queryParams, ['sort_by'])}
+                filters={_.omit(queryParams, ['sort_by', 'mine'])}
                 noFoundText={intl.formatMessage({
                   id: 'noresult.cluster.nofound'
                 })}
@@ -482,6 +482,7 @@ const Clusters: React.FC = () => {
         onClose={handleClusterModalClose}
       ></ClusterModal>
       {AddWorkerModal}
+      {AccessDrawer && <AccessDrawer />}
     </>
   );
 };

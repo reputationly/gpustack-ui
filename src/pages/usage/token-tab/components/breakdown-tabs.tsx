@@ -1,13 +1,29 @@
+import { getGPUStackPlugin } from '@/plugins';
 import { useIntl } from '@umijs/max';
 import { Tabs } from 'antd';
 import React, { useMemo } from 'react';
-import { UsageFilterItem } from '../../config/types';
+import { BreakdownFilters } from '../../config/types';
 import ApiKeysTable from '../tables/apikeys-table';
 import ModelsTable from '../tables/models-table';
 import UsersTable from '../tables/users-table';
 
-type FilterOptionType = Omit<UsageFilterItem, 'label' | 'deleted'>;
-const EMPTY_FILTERS: FilterOptionType[] = [];
+// A breakdown sub-tab contributed by a plugin (e.g. the enterprise
+// Organization tab). ``isVisible`` is a PLAIN function (not a hook) called
+// during render to gate the tab on the current context — the plugin reads any
+// runtime state it needs non-reactively (e.g. the selected-org from storage),
+// so the host never calls a hook in a loop (Rules of Hooks).
+export interface BreakdownExtraTab {
+  key: string;
+  labelId: string;
+  isVisible?: (ctx: { scope: string }) => boolean;
+  Component: React.ComponentType<{
+    filters: BreakdownFilters;
+    dateRange: { start_date: string; end_date: string };
+    scope: string;
+    pageResetKey?: number;
+    refreshKey?: number;
+  }>;
+}
 
 const BreakdownTabs: React.FC<{
   dateRange: {
@@ -17,18 +33,35 @@ const BreakdownTabs: React.FC<{
   scope: string;
   pageResetKey?: number;
   refreshKey?: number;
-  filters: {
-    routes?: FilterOptionType[];
-    users?: FilterOptionType[];
-    api_keys?: FilterOptionType[];
-  };
+  filters: BreakdownFilters;
 }> = ({ filters, dateRange, scope, pageResetKey = 0, refreshKey = 0 }) => {
   const intl = useIntl();
-  const routes = filters.routes || EMPTY_FILTERS;
-  const users = filters.users || EMPTY_FILTERS;
-  const apiKeys = filters.api_keys || EMPTY_FILTERS;
+
+  const extraTabs: BreakdownExtraTab[] =
+    getGPUStackPlugin()?.usage?.breakdownExtraTabs ?? [];
 
   const items = useMemo(() => {
+    const extraItems = extraTabs
+      .filter((tab) => (tab.isVisible ? tab.isVisible({ scope }) : true))
+      .map((tab) => {
+        const Component = tab.Component;
+        return {
+          key: tab.key,
+          label: intl.formatMessage({ id: tab.labelId }),
+          forceRender: true,
+          children: (
+            <Component
+              key={tab.key}
+              filters={filters}
+              dateRange={dateRange}
+              scope={scope}
+              pageResetKey={pageResetKey}
+              refreshKey={refreshKey}
+            />
+          )
+        };
+      });
+
     return [
       {
         key: 'models',
@@ -37,7 +70,7 @@ const BreakdownTabs: React.FC<{
         children: (
           <ModelsTable
             key="models"
-            routes={routes}
+            filters={filters}
             dateRange={dateRange}
             scope={scope}
             pageResetKey={pageResetKey}
@@ -52,7 +85,7 @@ const BreakdownTabs: React.FC<{
         children: (
           <UsersTable
             key="users"
-            users={users}
+            filters={filters}
             dateRange={dateRange}
             scope={scope}
             pageResetKey={pageResetKey}
@@ -67,7 +100,7 @@ const BreakdownTabs: React.FC<{
         children: (
           <ApiKeysTable
             key="api_keys"
-            apiKeys={apiKeys}
+            filters={filters}
             dateRange={dateRange}
             scope={scope}
             pageResetKey={pageResetKey}
@@ -75,13 +108,15 @@ const BreakdownTabs: React.FC<{
           />
         )
       }
-    ].filter((item) => {
-      if (item.key === 'users') {
-        return scope === 'all';
-      }
-      return true;
-    });
-  }, [apiKeys, dateRange, routes, pageResetKey, refreshKey, scope, users]);
+    ]
+      .filter((item) => {
+        if (item.key === 'users') {
+          return scope === 'all';
+        }
+        return true;
+      })
+      .concat(extraItems);
+  }, [filters, dateRange, pageResetKey, refreshKey, scope, extraTabs, intl]);
 
   return (
     <div style={{ marginTop: 16 }}>
