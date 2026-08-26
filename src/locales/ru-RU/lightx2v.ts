@@ -40,10 +40,10 @@ export default {
     'Tolerated queue wait for diffusion audio (AudioX / SoulX, ~90s).',
   'storageSettings.admission.latencyTable': 'Per-model Latency (s)',
   'storageSettings.admission.latencyTable.tips':
-    'Single-instance hot-state generation seconds per model (substring match, FIRST matching row wins — put longer names above shorter ones). Estimate = floor(queued / running instances) × latency.',
+    'Single-instance hot-state generation seconds per model. Just enter the model name (case-insensitive): admission matches the resolved model name exactly, so row order does not matter. Only when the requested name equals no row (a model-route name, an owner-prefixed alias, an upstream channel alias) does it fall back to substring matching — and there row order does matter, longest name first. Drives the estimate = floor(queued / running instances) × latency. No match at all falls back to a per-kind default.',
   'storageSettings.admission.queueWaitTable': 'Per-model Max Queue Wait (s)',
   'storageSettings.admission.queueWaitTable.tips':
-    'Overrides the per-kind ceilings above for one model (same matching and row-order precedence). Leave empty to use the per-kind value.',
+    'Overrides the per-kind ceilings above for one model (same matching: exact first, then substring). Use it when a kind mixes fast and slow models — e.g. the image kind holds both z-image (~9s) and HunyuanImage-3 with prompt enhancement on (~125s), and a single shared ceiling cannot serve both. Leave empty to use the per-kind value.',
   'storageSettings.admission.modelName': 'Model name (substring)',
   'storageSettings.admission.seconds': 'Seconds',
   'storageSettings.admission.addModel': '+ Add model',

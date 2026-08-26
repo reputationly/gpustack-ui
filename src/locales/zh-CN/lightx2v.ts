@@ -38,10 +38,10 @@ export default {
     '扩散类音频(AudioX 音效 / SoulX 歌声合成)可容忍的排队等待,约 90 秒。',
   'storageSettings.admission.latencyTable': '按模型延迟(秒)',
   'storageSettings.admission.latencyTable.tips':
-    '各模型单实例热态生成秒数(按模型名子串匹配、不区分大小写,取第一个命中的行 —— 更长的模型名必须排在更短的上面,例如 qwen-image-edit 要在 qwen-image 之上)。用于预估 = floor(排队数 / 在线实例数) × 延迟。未匹配的模型按类别默认兜底。',
+    '各模型单实例热态生成秒数。填模型名即可(不区分大小写):准入会先用解析后的模型名做精确匹配,此时行序无关。只有当请求里的名字不等于任何一行时(模型路由名、带 owner 前缀的别名、上游渠道别名),才退化为子串匹配 —— 那种情况下行序才起作用,更长的名字要排在更短的上面。用于预估 = floor(排队数 / 在线实例数) × 延迟。都不匹配则按类别默认兜底。',
   'storageSettings.admission.queueWaitTable': '按模型最大排队等待(秒)',
   'storageSettings.admission.queueWaitTable.tips':
-    '对单个模型覆盖上面的按类别阈值(匹配规则与行序优先级同上)。适用于同一类别里快慢悬殊的场景 —— 例如图片类同时有 z-image(约 8 秒)和 HunyuanImage-3(约 110 秒),一个共享阈值伺候不了两边。留空则沿用按类别的值。',
+    '对单个模型覆盖上面的按类别阈值(匹配规则同上:先精确、再子串)。适用于同一类别里快慢悬殊的场景 —— 例如图片类同时有 z-image(约 9 秒)和 HunyuanImage-3 开启提示词增强后(约 125 秒),一个共享阈值伺候不了两边。留空则沿用按类别的值。',
   'storageSettings.admission.modelName': '模型名(子串)',
   'storageSettings.admission.seconds': '秒',
   'storageSettings.admission.addModel': '+ 添加模型',
