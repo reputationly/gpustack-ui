@@ -96,7 +96,17 @@ export const inferVideoTaskType = (
   }
   const m = (modelName || '').toLowerCase();
   if (m.includes('infinitetalk') || m.includes('s2v')) return 's2v';
-  if (m.includes('seedvr') || m.includes('-sr') || m.endsWith('sr'))
+  // SwiftVR needs its own token: 'swiftvr' matches NONE of the three below —
+  // it has no 'seedvr' substring, no '-sr', and ends in 'vr' not 'sr' — so it
+  // would fall through to the t2v default and the source video would never be
+  // materialised. Listed first so the intent is obvious; order among the sr
+  // alternatives does not matter (they are all one branch).
+  if (
+    m.includes('swiftvr') ||
+    m.includes('seedvr') ||
+    m.includes('-sr') ||
+    m.endsWith('sr')
+  )
     return 'sr';
   // Video dubbing (v2a): SAME pixels back + AI audio track (.mp4). Match the
   // task token only ('v2a'/'dub', e.g. deploy name "ltx2-v2a"), NOT the model

@@ -64,6 +64,11 @@ describe('inferVideoTaskType', () => {
       ['seedvr2-3b', 'sr'],
       ['upscaler-sr', 'sr'],
       ['foo-bar-sr', 'sr'],
+      // SwiftVR matches none of the seedvr/-sr/endsWith('sr') tokens on its own
+      // ('swiftvr' ends in 'vr'), so it needs its own token in the branch.
+      ['swiftvr', 'sr'],
+      ['swiftvr-1card', 'sr'],
+      ['SwiftVR_lightx2v', 'sr'],
       ['ltx2-v2a', 'v2a'],
       ['my-dub-model', 'v2a'],
       ['wan2.2-vace', 'vace'],
