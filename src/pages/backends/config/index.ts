@@ -34,7 +34,9 @@ export const builtInBackendLogos: Record<string, string> = {
   // vLLM-Omni is a vLLM-based engine; reuse the vLLM logo.
   [backendOptionsMap.vllmOmni]: vLLMLogo,
   // Bernini is a video engine like LightX2V; reuse its logo until a dedicated one lands.
-  [backendOptionsMap.bernini]: LightX2VLogo
+  [backendOptionsMap.bernini]: LightX2VLogo,
+  // Breeze TTS is a speech engine; reuse the vox-box logo until a dedicated one lands.
+  [backendOptionsMap.breezeTTS]: VoxBoxLogo
 };
 
 export const BackendSourceValueMap = {
