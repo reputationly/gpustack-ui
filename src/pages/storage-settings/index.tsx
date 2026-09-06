@@ -20,7 +20,13 @@ import { getStorageConfig, updateStorageConfig } from './apis';
 const DEFAULT_LATENCY: Record<string, number> = {
   'z-image': 8,
   'qwen-image-edit': 40,
-  'qwen-image': 17
+  'qwen-image': 17,
+  // 语音类必须列在这里,不是为了兜底而是为了「打开本页就看得见该配什么」:
+  // audio 类的按类别默认排队上限只有 60s,而不同 TTS 引擎的 RTF 能差一倍以上,
+  // 只填时延不填排队上限的话,预估等待一超过 60s 第二条并发就被准入拒成 429。
+  // breeze-tts-2 实测:短句档 RTF≈0.66,20s 覆盖百字以内;放开长文本(600 字上限
+  // 约 111s 音频)要改成 75,并把同页的按模型排队上限一起抬到 300。
+  'breeze-tts-2': 20
 };
 
 // 秒数取值区间。两张按模型表和五个按类别阈值共用,避免“按模型能填 86400、
