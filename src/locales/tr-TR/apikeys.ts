@@ -1,6 +1,11 @@
 export default {
   'apikeys.title': 'API Anahtarları',
   'apikeys.table.apikeys': 'anahtarlar',
+  'apikeys.table.scope': 'Kapsam',
+  'apikeys.scope.all': 'Tümü',
+  'apikeys.scope.personal': 'Kişisel',
+  'apikeys.scope.personal.tips':
+    'Kişisel kapsam: yalnızca kendi sahip olduğu kaynakları okur. Modeller, örnekler ve düğümler bir kuruluşa aittir; bu nedenle yönetim uç noktaları hata değil boş liste (HTTP 200, 0 kayıt) döner.',
   'apikeys.table.key': 'Anahtar',
   'apikeys.button.create': 'API Anahtarı Ekle',
   'apikeys.button.edit': 'API Anahtarını Düzenle',

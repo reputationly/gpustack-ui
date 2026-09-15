@@ -1,4 +1,5 @@
 // columns.ts
+import { getOrgNameById, userAtom } from '@/atoms/user';
 import { tableSorter } from '@/config/settings';
 import { usePluginListColumns } from '@/plugins/list-extra-columns';
 import { DashboardOutlined } from '@ant-design/icons';
@@ -14,6 +15,7 @@ import { useIntl } from '@umijs/max';
 import { MenuProps, Tooltip } from 'antd';
 import { ColumnsType } from 'antd/lib/table';
 import dayjs from 'dayjs';
+import { useAtom } from 'jotai';
 import { useMemo } from 'react';
 import { ListItem } from '../config/types';
 import type { APIKeyConfigAction } from '../plugin';
@@ -52,6 +54,10 @@ const useModelsColumns = ({
 }: ColumnsHookProps): ColumnsType<ListItem> => {
   const intl = useIntl();
   const pluginCols = usePluginListColumns('apiKeys');
+  // Own USER-principal id, used to tell a personal-scope key apart from an
+  // Org-scoped one (both render as a number in ``owner_principal_id``).
+  const [userInfo] = useAtom(userAtom);
+  const currentUserId = userInfo?.id;
 
   const actionList = useMemo<APIKeyAction[]>(() => {
     // Built-ins use a step-of-10 priority scale so plugins have room
@@ -208,6 +214,64 @@ const useModelsColumns = ({
         )
       },
       {
+        // Tenant scope of the key, i.e. its ``owner_principal_id``.
+        //
+        // Why this column exists: the value is invisible in the key string and
+        // silently changes what the key can READ. A personal-scope key passes
+        // auth and returns HTTP 200 with an *empty* list from every tenant-
+        // scoped endpoint (``/v2/models``, ``/v2/model-instances``,
+        // ``/v2/workers``), because those filter on
+        // ``owner_principal_id == current_principal_id`` and an API key always
+        // pins that to its own owner (``X-Organization-Id`` is ignored for API
+        // keys — see ``_resolve_requested_principal_id``). Two keys of the same
+        // user then behave completely differently with nothing in the UI to
+        // tell them apart, which is exactly how a new-api GPUStack-affinity
+        // channel was mis-configured with a key that read 0 instances.
+        title: intl.formatMessage({ id: 'apikeys.table.scope' }),
+        dataIndex: 'owner_principal_id',
+        key: 'owner_principal_id',
+        render: (owner: number | null | undefined) => {
+          // NULL is the platform-admin "All" key: no tenant pinning, so
+          // ``bypass_tenant_filter`` applies and it reads every principal's
+          // resources. This is the only kind usable for cross-Org reads.
+          if (owner == null) {
+            return (
+              <ThemeTag>
+                <AutoTooltip ghost>
+                  {intl.formatMessage({ id: 'apikeys.scope.all' })}
+                </AutoTooltip>
+              </ThemeTag>
+            );
+          }
+          // Pinned to the creator's own USER-principal — personal scope. It
+          // can only read resources it owns, which for models/instances
+          // (owned by an Org) means nothing.
+          if (
+            currentUserId != null &&
+            String(owner) === String(currentUserId)
+          ) {
+            return (
+              <AutoTooltip
+                ghost
+                title={intl.formatMessage({
+                  id: 'apikeys.scope.personal.tips'
+                })}
+              >
+                {intl.formatMessage({ id: 'apikeys.scope.personal' })}
+              </AutoTooltip>
+            );
+          }
+          // Otherwise it is pinned to an Org; show the Org name when the
+          // cached list has it, else fall back to the raw principal id so the
+          // column never renders as a bare dash.
+          return (
+            <AutoTooltip ghost style={{ maxWidth: 200 }}>
+              {getOrgNameById(owner) ?? `#${owner}`}
+            </AutoTooltip>
+          );
+        }
+      },
+      {
         title: intl.formatMessage({ id: 'common.table.description' }),
         dataIndex: 'description',
         key: 'description',
@@ -258,7 +322,7 @@ const useModelsColumns = ({
         )
       }
     ];
-  }, [intl, showCreator, handleSelect, actionList, pluginCols]);
+  }, [intl, showCreator, handleSelect, actionList, pluginCols, currentUserId]);
 };
 
 export default useModelsColumns;

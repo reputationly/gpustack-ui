@@ -1,6 +1,11 @@
 export default {
   'apikeys.title': 'APIキー',
   'apikeys.table.apikeys': 'キー',
+  'apikeys.table.scope': 'スコープ',
+  'apikeys.scope.all': 'すべて',
+  'apikeys.scope.personal': '個人',
+  'apikeys.scope.personal.tips':
+    '個人スコープ: 自身が所有するリソースのみ読み取れます。モデル・インスタンス・ワーカーは組織が所有するため、管理 API は空のリスト(HTTP 200、0 件)を返し、エラーにはなりません。',
   'apikeys.table.key': 'キー',
   'apikeys.button.create': '新しいAPIキーを作成',
   'apikeys.button.edit': 'APIキーを編集',

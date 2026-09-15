@@ -1,6 +1,11 @@
 export default {
   'apikeys.title': 'API 密钥',
   'apikeys.table.apikeys': '密钥',
+  'apikeys.table.scope': '作用域',
+  'apikeys.scope.all': '全部',
+  'apikeys.scope.personal': '个人',
+  'apikeys.scope.personal.tips':
+    '个人作用域：只能读取自己拥有的资源。模型、实例、节点归组织所有，因此这类密钥调用管理接口会返回空列表（HTTP 200、0 条），而不是报错。',
   'apikeys.table.key': '密钥',
   'apikeys.button.create': '添加 API 密钥',
   'apikeys.button.edit': '编辑 API 密钥',

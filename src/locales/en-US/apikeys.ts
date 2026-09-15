@@ -1,6 +1,11 @@
 export default {
   'apikeys.title': 'API Keys',
   'apikeys.table.apikeys': 'keys',
+  'apikeys.table.scope': 'Scope',
+  'apikeys.scope.all': 'All',
+  'apikeys.scope.personal': 'Personal',
+  'apikeys.scope.personal.tips':
+    'Personal scope: reads only resources it owns. Models, instances and workers are owned by an Org, so management endpoints return an empty list (HTTP 200 with 0 items) rather than an error.',
   'apikeys.table.key': 'Key',
   'apikeys.button.create': 'Add API Key',
   'apikeys.button.edit': 'Edit API Key',

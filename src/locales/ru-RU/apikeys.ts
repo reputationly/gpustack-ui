@@ -1,6 +1,11 @@
 export default {
   'apikeys.title': 'API-ключи',
   'apikeys.table.apikeys': 'Ключи',
+  'apikeys.table.scope': 'Область',
+  'apikeys.scope.all': 'Все',
+  'apikeys.scope.personal': 'Личная',
+  'apikeys.scope.personal.tips':
+    'Личная область: читает только собственные ресурсы. Модели, экземпляры и узлы принадлежат организации, поэтому управляющие эндпоинты вернут пустой список (HTTP 200, 0 элементов), а не ошибку.',
   'apikeys.table.key': 'Ключ',
   'apikeys.button.create': 'Создать API-ключ',
   'apikeys.button.edit': 'Редактировать API-ключ',
