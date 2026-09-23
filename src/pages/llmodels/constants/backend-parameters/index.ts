@@ -23,7 +23,9 @@ export const backendOptionsMap = {
   // Must match the backend name returned by the API (BackendEnum.BERNINI).
   bernini: 'Bernini',
   // Must match the backend name returned by the API (BackendEnum.BREEZE_TTS).
-  breezeTTS: 'BreezeTTS'
+  breezeTTS: 'BreezeTTS',
+  // Must match the backend name returned by the API (BackendEnum.YUE2).
+  yue2: 'YuE2'
 };
 
 // for checking built-in backends when selecting a gguf

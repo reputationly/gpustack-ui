@@ -55,7 +55,8 @@ export const backendLabelMap = {
   [backendOptionsMap.aceStep]: 'ACEStep',
   [backendOptionsMap.vllmOmni]: 'vLLM-Omni',
   [backendOptionsMap.bernini]: 'Bernini',
-  [backendOptionsMap.breezeTTS]: 'Breeze TTS'
+  [backendOptionsMap.breezeTTS]: 'Breeze TTS',
+  [backendOptionsMap.yue2]: 'YuE2'
 };
 
 export const backendParamsHolderTips = {

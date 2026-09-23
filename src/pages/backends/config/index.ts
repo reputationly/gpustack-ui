@@ -36,7 +36,9 @@ export const builtInBackendLogos: Record<string, string> = {
   // Bernini is a video engine like LightX2V; reuse its logo until a dedicated one lands.
   [backendOptionsMap.bernini]: LightX2VLogo,
   // Breeze TTS is a speech engine; reuse the vox-box logo until a dedicated one lands.
-  [backendOptionsMap.breezeTTS]: VoxBoxLogo
+  [backendOptionsMap.breezeTTS]: VoxBoxLogo,
+  // YuE2 is a music engine like ACE-Step; reuse its logo until a dedicated one lands.
+  [backendOptionsMap.yue2]: AceStepLogo
 };
 
 export const BackendSourceValueMap = {
