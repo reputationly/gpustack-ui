@@ -41,7 +41,8 @@ export async function deleteProvider(id: number) {
 export async function queryProviderModels(
   params: {
     data: {
-      api_token: string;
+      // 可缺省：无凭据 provider(本地/内网端点)与"未改动 key"的编辑态都会传 undefined
+      api_token?: string;
       proxy_url: string;
       config: {
         type: string;
@@ -64,7 +65,8 @@ export async function queryProviderModelsInEditing(
   params: {
     id?: number;
     data: {
-      api_token: string;
+      // 可缺省：无凭据 provider(本地/内网端点)与"未改动 key"的编辑态都会传 undefined
+      api_token?: string;
       proxy_url: string;
       config: {
         type: string;
@@ -87,7 +89,8 @@ export async function testProviderModel(
   params: {
     data: {
       model_name: string;
-      api_token: string;
+      // 可缺省：无凭据 provider(本地/内网端点)与"未改动 key"的编辑态都会传 undefined
+      api_token?: string;
       proxy_url: string;
       config: {
         type: string;
@@ -108,7 +111,8 @@ export async function testProviderModelInEditing(
     id?: number;
     data: {
       model_name: string;
-      api_token: string;
+      // 可缺省：无凭据 provider(本地/内网端点)与"未改动 key"的编辑态都会传 undefined
+      api_token?: string;
       proxy_url: string;
       config: {
         type: string;
