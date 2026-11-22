@@ -44,11 +44,9 @@ const SupportedModels = () => {
     api_key: string;
     [key: string]: any;
   }) => {
-    return (
-      !_.isEqual(current, prevConfigRef.current) &&
-      current.api_key &&
-      current.type
-    );
+    // An empty api_key is allowed: providers without credentials can still list
+    // their models, so a blank key must not disable the fetch.
+    return !_.isEqual(current, prevConfigRef.current) && !!current.type;
   };
 
   const handleOpenChange = async (open: boolean) => {

@@ -103,15 +103,11 @@ const Basic: React.FC<{
       <ProviderConfigs />
       <Form.Item<FormData>
         name="api_key"
-        rules={[
-          {
-            required: true,
-            message: getRuleMessage('input', 'providers.form.tokens.title')
-          }
-        ]}
+        // Not required: an empty key is a valid provider (local/intranet endpoint
+        // without auth). Requiring it here only pushed people to store a dummy
+        // token, which the gateway then sends upstream as a real Authorization.
       >
         <Password
-          required
           visibilityToggle={action !== PageAction.EDIT}
           onBlur={onAPIKeyBlur}
           label={intl.formatMessage({

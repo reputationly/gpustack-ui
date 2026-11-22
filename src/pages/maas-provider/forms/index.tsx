@@ -43,7 +43,10 @@ const TABKeysMap = {
 const requiredFields = {
   [TABKeysMap.BASIC]: {
     sort: 1,
-    fields: ['name', 'config', 'api_key']
+    // 'api_key' is deliberately absent: a provider may legitimately have no
+    // credentials (a local OpenAI-compatible endpoint that needs no auth), so the
+    // form must not block on it. Whatever is typed is still validated below.
+    fields: ['name', 'config']
   },
   [TABKeysMap.SUPPORTEDMODELS]: {
     sort: 2,
