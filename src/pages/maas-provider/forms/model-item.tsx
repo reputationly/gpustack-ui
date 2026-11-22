@@ -80,9 +80,7 @@ const ModelItem: React.FC<ModelItemProps> = ({
       id: generateID(),
       data: {
         model_name: item.name,
-        api_token: generateCurrentAPIKey(
-          form.getFieldValue('api_key')
-        ) as string,
+        api_token: generateCurrentAPIKey(form.getFieldValue('api_key')),
         proxy_url: proxyConfigEnabled
           ? form.getFieldValue('proxy_url') || null
           : null,

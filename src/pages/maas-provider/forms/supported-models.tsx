@@ -73,7 +73,7 @@ const SupportedModels = () => {
         fetchProviderModels({
           id: generateID(),
           data: {
-            api_token: generateCurrentAPIKey(currentAPIKey) as string,
+            api_token: generateCurrentAPIKey(currentAPIKey),
             proxy_url: proxyConfigEnabled
               ? form.getFieldValue('proxy_url') || null
               : null,
