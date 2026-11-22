@@ -100,11 +100,18 @@ const ProviderForm: React.FC<ProviderFormProps> = forwardRef((props, ref) => {
     return currentProviderFields;
   }, [providerRequiredFieldsMap, configType]);
 
+  /**
+   * 主 key 与附加 key 一起过滤空值。
+   *
+   * 主 key 以前不管有没有值都进列表：没填时提交 `api_tokens: [{}]`，清空后提交
+   * `[{"input": ""}]`，两种都会被后端 MaskedAPIToken 拒掉——于是「新建无凭据
+   * provider」「保存已清空的 provider」「删掉最后一个 key」三件事全都失败。
+   * 空字符串就是「不带凭据」，不该造出一个假条目。
+   */
   const formatAPIKeys = (values: FormData) => {
-    const apiTokens = values.api_tokens?.filter?.(
-      (item) => item && item.trim() !== ''
-    );
-    const apiTokenList = _.concat([], values.api_key, apiTokens || []);
+    const apiTokenList = [values.api_key, ...(values.api_tokens || [])]
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter((item) => item !== '');
     if (action === PageAction.CREATE) {
       return apiTokenList.map((item: string) => ({ input: item }));
     }
